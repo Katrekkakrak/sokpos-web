@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { DataProvider, useData } from './context/DataContext';
+import { AuthProvider } from './context/AuthContext';
 import Storefront from './src/pages/Storefront';
 import TrackOrder from './src/pages/TrackOrder';
 import Login from './components/Login';
@@ -179,16 +180,18 @@ const POSAppContent = () => {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Storefront Route - No authentication required */}
-        <Route path="/store/:shopId" element={<Storefront />} />
-        <Route path="/store/:shopId/track" element={<TrackOrder />} />
-        <Route path="/store/:shopId/history" element={<OrderHistory />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Storefront Route - No authentication required */}
+          <Route path="/store/:shopId" element={<Storefront />} />
+          <Route path="/store/:shopId/track" element={<TrackOrder />} />
+          <Route path="/store/:shopId/history" element={<OrderHistory />} />
 
-        {/* Private POS Application Routes - Requires authentication via DataProvider */}
-        <Route path="/*" element={<POSApp />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Private POS Application Routes - Requires authentication via DataProvider */}
+          <Route path="/*" element={<POSApp />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
