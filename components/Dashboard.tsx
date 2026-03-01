@@ -9,6 +9,17 @@ const Dashboard: React.FC = () => {
     } = useData();
     const [chartPeriod, setChartPeriod] = useState<'Weekly' | 'Monthly'>('Weekly');
     
+    // Store Link Logic
+    const [copied, setCopied] = useState(false);
+    const shopId = user?.name || 'shop';
+    const storeLink = `${window.location.origin}/store/${encodeURIComponent(shopId)}`;
+
+    const handleCopyLink = () => {
+        navigator.clipboard.writeText(storeLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    
     // --- Dynamic Analytics ---
     const stats = useMemo(() => {
         // 1. Daily Sales (Orders from today)
@@ -102,6 +113,57 @@ const Dashboard: React.FC = () => {
     return (
         <div className="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8 h-full">
             <div className="max-w-7xl mx-auto space-y-6">
+                
+                {/* Digital Store Link Card */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl p-1 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex-1 w-full">
+                                <h2 className="text-xl font-bold text-slate-900 dark:text-white font-khmer mb-2 flex items-center gap-2">
+                                    <span className="text-2xl">🌐</span> លីងហាងឌីជីថលរបស់អ្នក (Your Digital Store Link)
+                                </h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
+                                    Share this link with your customers to let them order online.
+                                </p>
+                                
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="flex-1 relative">
+                                        <input 
+                                            type="text" 
+                                            readOnly 
+                                            value={storeLink} 
+                                            className="w-full bg-slate-100 dark:bg-slate-900 text-blue-600 dark:text-blue-400 font-medium text-sm rounded-lg border-none py-3 pl-4 pr-10 focus:ring-2 focus:ring-blue-500/20"
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                                            <span className="material-icons-outlined text-lg">link</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <button 
+                                            onClick={handleCopyLink}
+                                            className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-sm ${copied ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                        >
+                                            <span className="material-icons-outlined text-lg">
+                                                {copied ? 'check' : 'content_copy'}
+                                            </span>
+                                            {copied ? 'Copied! ✅' : 'Copy Link'}
+                                        </button>
+                                        <a 
+                                            href={storeLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/30"
+                                        >
+                                            <span className="material-icons-outlined text-lg">open_in_new</span>
+                                            Visit Store
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Welcome Message */}
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                     <div>
