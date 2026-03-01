@@ -1,0 +1,517 @@
+
+import React, { useState, useMemo } from 'react';
+import { useData } from '../context/DataContext';
+
+const Dashboard: React.FC = () => {
+    const { 
+        user, setCurrentView, orders, onlineOrders, leads, products,
+        branches, currentBranch, setCurrentBranch, customers 
+    } = useData();
+    const [chartPeriod, setChartPeriod] = useState<'Weekly' | 'Monthly'>('Weekly');
+    
+    // --- Dynamic Analytics ---
+    const stats = useMemo(() => {
+        // 1. Daily Sales (Orders from today)
+        const todayStr = new Date().toDateString();
+        const todaysOrders = orders.filter(o => new Date(o.date).toDateString() === todayStr);
+        const dailyTotal = todaysOrders.reduce((acc, order) => acc + order.total, 0);
+
+        // 2. New Leads (For demo, we count total leads in the 'New Lead' status)
+        const newLeadsCount = leads.filter(l => l.status === 'New Lead').length;
+
+        // 3. Online Orders (Pending or Active)
+        const pendingOnline = onlineOrders.filter(o => o.status !== 'Completed' && o.status !== 'Cancelled').length;
+
+        // 4. Low Stock Alerts (Stock <= 10)
+        const lowStockCount = products.filter(p => (p.stock || 0) <= 10).length;
+
+        return { dailyTotal, newLeadsCount, pendingOnline, lowStockCount };
+    }, [orders, leads, onlineOrders, products]);
+
+    // --- New Calculations for Enhanced Dashboard ---
+    const branchAnalytics = useMemo(() => {
+        // Filter orders by current branch
+        const branchOrders = orders.filter(o => o.branchId === currentBranch);
+        
+        // Metric A: Today's revenue vs Yesterday's
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const todayStr = today.toDateString();
+        const yesterdayStr = yesterday.toDateString();
+        
+        const todayRevenue = branchOrders.filter(o => new Date(o.date).toDateString() === todayStr).reduce((sum, o) => sum + o.total, 0);
+        const yesterdayRevenue = branchOrders.filter(o => new Date(o.date).toDateString() === yesterdayStr).reduce((sum, o) => sum + o.total, 0);
+        const revenueChange = yesterdayRevenue > 0 ? ((todayRevenue - yesterdayRevenue) / yesterdayRevenue * 100) : 0;
+        
+        // Metric B: Cash vs KHQR
+        const cashTotal = branchOrders.filter(o => o.method === 'Cash').reduce((sum, o) => sum + o.total, 0);
+        const khqrTotal = branchOrders.filter(o => o.method === 'KHQR').reduce((sum, o) => sum + o.total, 0);
+        
+        // Metric C: Sales Source (Walk-in vs Facebook vs Telegram)
+        const walkInOrders = branchOrders.filter(o => !o.customer?.name || o.customer?.name === 'Walk-in').length;
+        const facebookOrders = onlineOrders.filter(o => o.source === 'Facebook' && o.branchId === currentBranch).length;
+        const telegramOrders = onlineOrders.filter(o => o.source === 'Telegram' && o.branchId === currentBranch).length;
+        
+        // Metric D: Urgent Tasks (Orders that are New, Pending, or Packing)
+        const urgentCount = onlineOrders.filter(o => (o.status === 'New' || o.status === 'Pending' || o.status === 'Packing') && o.branchId === currentBranch).length;
+        
+        // Metric E: Overdue Debt
+        const debtCustomers = customers.filter(c => c.totalDebt > 0);
+        const totalDebt = debtCustomers.reduce((sum, c) => sum + c.totalDebt, 0);
+        const debtCount = debtCustomers.length;
+        const topDebtors = [...debtCustomers].sort((a, b) => b.totalDebt - a.totalDebt).slice(0, 2);
+        
+        // Metric F: Top 5 Selling Products
+        const productSales: { [key: number]: { name: string; qty: number; revenue: number } } = {};
+        branchOrders.forEach(order => {
+            order.items?.forEach(item => {
+                if (!productSales[item.id]) {
+                    productSales[item.id] = { name: item.name, qty: 0, revenue: 0 };
+                }
+                productSales[item.id].qty += item.quantity;
+                productSales[item.id].revenue += item.quantity * (item.selectedUnitPrice || item.price);
+            });
+        });
+        const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
+        
+        return {
+            todayRevenue,
+            yesterdayRevenue,
+            revenueChange,
+            cashTotal,
+            khqrTotal,
+            walkInOrders,
+            facebookOrders,
+            telegramOrders,
+            urgentCount,
+            totalDebt,
+            debtCount,
+            topDebtors,
+            topProducts
+        };
+    }, [orders, onlineOrders, currentBranch, customers]);
+
+    // Recent Activity (Merge orders and take last 5)
+    const recentActivity = [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+    // Latest Invoices (Last 5)
+    const latestInvoices = [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+    return (
+        <div className="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8 h-full">
+            <div className="max-w-7xl mx-auto space-y-6">
+                {/* Welcome Message */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white font-khmer">សួស្តី, បង {user?.name.split(' ')[0]} 👋</h2>
+                        <p className="text-sm text-slate-500 font-khmer mt-1">នេះគឺជាទិន្នន័យសង្ខេបសម្រាប់អាជីវកម្មរបស់អ្នកថ្ងៃនេះ។</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <select 
+                            value={currentBranch}
+                            onChange={(e) => setCurrentBranch(e.target.value)}
+                            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white hover:border-primary transition-colors cursor-pointer"
+                        >
+                            {branches.map(branch => (
+                                <option key={branch.id} value={branch.id}>{branch.name}</option>
+                            ))}
+                        </select>
+                        <button 
+                            onClick={() => setCurrentView('pos')}
+                            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-md shadow-primary/30 active:scale-95 group"
+                        >
+                            <span className="material-icons-outlined text-[20px] group-hover:rotate-90 transition-transform">add</span>
+                            <span className="font-khmer font-bold">វិក្កយបត្រថ្មី</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* NEW: Financial Summary KPI Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* New KPI 1: Total Revenue with Trend */}
+                    <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-emerald-500">trending_up</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">សរុបលក់ថ្មីៗ (Total Revenue)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.todayRevenue.toFixed(2)}</h3>
+                            <div className={`flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full w-fit ${branchAnalytics.revenueChange >= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-red-600 bg-red-50 dark:bg-red-900/20'}`}>
+                                <span className="material-icons-outlined text-[14px]">{branchAnalytics.revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
+                                <span>{branchAnalytics.revenueChange.toFixed(1)}% vs yesterday</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* New KPI 2: Total Cash */}
+                    <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-blue-500">payments</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ប្រាក់សុទ្ធ (Cash)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.cashTotal.toFixed(2)}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full w-fit">
+                                <span className="material-icons-outlined text-[14px]">account_balance_wallet</span>
+                                <span>{branchAnalytics.walkInOrders} sales</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* New KPI 3: Total KHQR */}
+                    <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-purple-500">qr_code_2</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">KHQR ស្កេន (KHQR)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.khqrTotal.toFixed(2)}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full w-fit">
+                                <span className="material-icons-outlined text-[14px]">qr_code</span>
+                                <span>Mobile payments</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* New KPI 4: Total Unpaid Debt */}
+                    <div className={`bg-surface-light dark:bg-surface-dark p-5 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group ${branchAnalytics.totalDebt > 0 ? 'border-orange-200 dark:border-orange-900/50' : 'border-slate-200 dark:border-slate-700'}`}>
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className={`material-icons-outlined text-6xl ${branchAnalytics.totalDebt > 0 ? 'text-orange-500' : 'text-slate-400'}`}>receipt_long</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ជំពាក់សរុប (Total Debt)</p>
+                            <h3 className={`text-2xl font-bold ${branchAnalytics.totalDebt > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-900 dark:text-white'}`}>${branchAnalytics.totalDebt.toFixed(2)}</h3>
+                            <div className={`flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full w-fit ${branchAnalytics.debtCount > 0 ? 'text-orange-600 bg-orange-50 dark:bg-orange-900/20' : 'text-slate-500 bg-slate-100 dark:bg-slate-800'}`}>
+                                <span className="material-icons-outlined text-[14px]">group</span>
+                                <span font-khmer>{branchAnalytics.debtCount} customers</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Existing KPI Cards (4 Columns) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* KPI 1: Daily Sales */}
+                    <div onClick={() => setCurrentView('receipt-history')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-primary">payments</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ការលក់ថ្ងៃនេះ (Daily Sales)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${stats.dailyTotal.toFixed(2)}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full w-fit">
+                                <span className="material-icons-outlined text-[14px]">trending_up</span>
+                                <span>Today</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* KPI 2: New Leads */}
+                    <div onClick={() => setCurrentView('crm-directory')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-purple-500">group_add</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">អតិថិជនថ្មី (New Leads)</p>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.newLeadsCount}</h3>
+                            <div className="flex items-center gap-1 mt-2 text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full w-fit">
+                                <span>Total Active Leads</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* KPI 3: Online Orders */}
+                    <div onClick={() => setCurrentView('online-orders')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className="material-icons-outlined text-6xl text-blue-500">shopping_cart</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ការកុម្ម៉ង់អនឡាញ (Active)</p>
+                            <div className="flex items-baseline gap-2">
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{stats.pendingOnline}</h3>
+                                <span className="text-xs text-slate-400">Pending</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className={`flex h-2 w-2 rounded-full ${stats.pendingOnline > 0 ? 'bg-orange-400 animate-pulse' : 'bg-slate-300'}`}></span>
+                                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 font-khmer">
+                                    {stats.pendingOnline > 0 ? 'ត្រូវការរៀបចំ (Action Needed)' : 'រួចរាល់ទាំងអស់'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* KPI 4: Out of Stock Alerts */}
+                    <div onClick={() => setCurrentView('inventory-list')} className={`bg-surface-light dark:bg-surface-dark p-5 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group ${stats.lowStockCount > 0 ? 'border-red-200 dark:border-red-900/50' : 'border-slate-200 dark:border-slate-700'}`}>
+                        <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <span className={`material-icons-outlined text-6xl ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>warning</span>
+                        </div>
+                        <div className="relative z-10">
+                            <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ការជូនដំណឹងអស់ស្តុក (Alerts)</p>
+                            <h3 className={`text-2xl font-bold ${stats.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{stats.lowStockCount} Items</h3>
+                            <div className={`flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full w-fit ${stats.lowStockCount > 0 ? 'text-red-600 bg-red-50 dark:bg-red-900/20' : 'text-slate-500 bg-slate-100'}`}>
+                                <span className="material-icons-outlined text-[14px]">inventory_2</span>
+                                <span className="font-khmer">{stats.lowStockCount > 0 ? 'ជិតអស់ស្តុក' : 'ស្តុកមានគ្រប់គ្រាន់'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Section Grid: Chart + Feed */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Weekly Revenue Bar Chart (Left) */}
+                    <div className="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-khmer">ក្រាហ្វលក់សប្ताហ៍ (Weekly Revenue)</h3>
+                            <p className="text-xs text-slate-500 mt-1">Revenue trends by day</p>
+                        </div>
+                        
+                        {/* Simplified Bar Chart */}
+                        <div className="flex-1 min-h-[250px] w-full relative flex items-end justify-between gap-2 pt-8 pb-6 px-1 border-b border-l border-slate-100 dark:border-slate-700">
+                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, idx) => {
+                                const height = [40, 55, 45, 65, 85, 92, 75][idx];
+                                return (
+                                    <div key={label} className="relative flex flex-col items-center flex-1 group h-full justify-end z-10 cursor-pointer">
+                                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-1 transition-opacity whitespace-nowrap">
+                                            ${(height * 12.5).toFixed(0)}
+                                        </div>
+                                        <div 
+                                            className="w-full max-w-[20px] bg-primary/20 group-hover:bg-primary/40 rounded-t-sm transition-all" 
+                                            style={{ height: `${height}%` }}
+                                        ></div>
+                                        <span className="text-[10px] text-slate-400 mt-2 font-medium">{label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Sales Source Pie Chart (Center) */}
+                    <div className="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
+                        <div className="mb-6">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-khmer">ប្រភពលក់ (Sales Source)</h3>
+                            <p className="text-xs text-slate-500 mt-1">Breakdown by channel</p>
+                        </div>
+                        
+                        {/* Pie/Donut Chart Mock */}
+                        <div className="flex flex-col items-center justify-center flex-1">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-r from-emerald-400 to-blue-500 relative flex items-center justify-center">
+                                <div className="w-28 h-28 rounded-full bg-surface-light dark:bg-surface-dark flex items-center justify-center">
+                                    <div className="text-center">
+                                        <p className="text-xs text-slate-500">Total</p>
+                                        <p className="text-lg font-bold text-slate-900 dark:text-white">{branchAnalytics.walkInOrders + branchAnalytics.facebookOrders + branchAnalytics.telegramOrders}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-6 space-y-2 w-full">
+                                <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
+                                        <span className="text-slate-600 dark:text-slate-300 font-khmer">ដើរទិញ</span>
+                                    </div>
+                                    <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.walkInOrders}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-blue-400"></span>
+                                        <span className="text-slate-600 dark:text-slate-300">Facebook</span>
+                                    </div>
+                                    <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.facebookOrders}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-purple-400"></span>
+                                        <span className="text-slate-600 dark:text-slate-300">Telegram</span>
+                                    </div>
+                                    <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.telegramOrders}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Sidebar Panel: Recent Activity (KEEP EXISTING) */}
+                    <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden h-full max-h-[460px]">
+                        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white font-khmer">សកម្មភាពថ្មីៗ (Recent Activity)</h3>
+                            <button onClick={() => setCurrentView('receipt-history')} className="text-xs text-primary font-medium hover:underline">View All</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto custom-scroll p-0">
+                            {recentActivity.length === 0 ? (
+                                <div className="p-8 text-center text-slate-400 text-sm">No recent activity.</div>
+                            ) : (
+                                recentActivity.map((order) => (
+                                    <div key={order.id} className="flex gap-3 p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <div className="flex-shrink-0 mt-1">
+                                            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+                                                <span className="material-icons-outlined text-[16px]">receipt</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-khmer truncate">
+                                                <span className="font-bold">New Sale</span> completed
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-0.5 font-mono">${order.total.toFixed(2)} • {order.id}</p>
+                                        </div>
+                                        <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(order.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                ))
+                            )}
+                            {/* Static Inventory Alert Mock */}
+                            {stats.lowStockCount > 0 && (
+                                <div onClick={() => setCurrentView('inventory-list')} className="flex gap-3 p-4 border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors bg-red-50/30 dark:bg-red-900/10 cursor-pointer">
+                                    <div className="flex-shrink-0 mt-1">
+                                        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+                                            <span className="material-icons-outlined text-[16px]">warning</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-khmer truncate">Inventory Alert</p>
+                                        <p className="text-xs text-red-500 mt-0.5 font-khmer">{stats.lowStockCount} items low in stock</p>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 whitespace-nowrap">Now</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* NEW: Alert Boxes Row (3 Columns) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Alert Box 1: Urgent Packing */}
+                    <div className={`p-5 rounded-xl border-2 ${branchAnalytics.urgentCount > 0 ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                        <div className="flex items-start gap-3">
+                            <div className={`p-3 rounded-lg ${branchAnalytics.urgentCount > 0 ? 'bg-orange-200 dark:bg-orange-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <span className="material-icons-outlined text-xl text-orange-600 dark:text-orange-400">local_shipping</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-slate-900 dark:text-white font-khmer">ត្រូវរៀបចំ</h4>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{branchAnalytics.urgentCount}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-khmer">ការកុម្ម៉ង់ដែលបង់ពិការ</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Alert Box 2: Low Stock Warning */}
+                    <div className={`p-5 rounded-xl border-2 ${stats.lowStockCount > 0 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                        <div className="flex items-start gap-3">
+                            <div className={`p-3 rounded-lg ${stats.lowStockCount > 0 ? 'bg-red-200 dark:bg-red-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <span className="material-icons-outlined text-xl text-red-600 dark:text-red-400">inventory_2</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-slate-900 dark:text-white font-khmer">ស្តុកទាប</h4>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{stats.lowStockCount}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-khmer">ផលិតផលមានស្តុកមិនគ្រប់</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Alert Box 3: Debt Collection */}
+                    <div className={`p-5 rounded-xl border-2 ${branchAnalytics.debtCount > 0 ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                        <div className="flex items-start gap-3">
+                            <div className={`p-3 rounded-lg ${branchAnalytics.debtCount > 0 ? 'bg-purple-200 dark:bg-purple-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                <span className="material-icons-outlined text-xl text-purple-600 dark:text-purple-400">person_alert</span>
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-semibold text-slate-900 dark:text-white font-khmer">ឥណទាន</h4>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${branchAnalytics.totalDebt.toFixed(0)}</p>
+                                <div className="mt-2">
+                                    {branchAnalytics.topDebtors.slice(0, 2).map((debtor, idx) => (
+                                        <p key={idx} className="text-xs text-slate-600 dark:text-slate-400 truncate">{debtor.name}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Section: Latest Invoices */}
+                <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <h3 className="font-bold text-slate-900 dark:text-white font-khmer">វិក្កយបត្រចុងក្រោយ (Latest Invoices)</h3>
+                        <button onClick={() => setCurrentView('receipt-history')} className="text-sm text-primary font-medium hover:underline font-khmer">មើលទាំងអស់</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3 font-medium">ID</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer">អតិថិជន (Customer)</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer">កាលបរិច្ឆេទ (Date)</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer">ស្ថានភាព (Status)</th>
+                                    <th scope="col" className="px-6 py-3 font-medium text-right font-khmer">សរុប (Total)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {latestInvoices.length === 0 ? (
+                                    <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500">No invoices yet.</td></tr>
+                                ) : (
+                                    latestInvoices.map(order => (
+                                        <tr key={order.id} className="bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4 font-mono font-medium text-slate-900 dark:text-white">{order.id}</td>
+                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                                                {order.customer ? order.customer.name : 'Walk-in Customer'}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-500">{new Date(order.date).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-xs font-medium px-2.5 py-0.5 rounded border ${
+                                                    order.status === 'Paid'
+                                                    ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                                                    : 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800'
+                                                }`}>
+                                                    {order.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-medium text-slate-900 dark:text-white">${order.total.toFixed(2)}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* NEW: Top Selling Products Table */}
+                <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <h3 className="font-bold text-slate-900 dark:text-white font-khmer">ផលិតផលលក់ច្រើន (Top Selling Products)</h3>
+                        <button onClick={() => setCurrentView('inventory-list')} className="text-sm text-primary font-medium hover:underline font-khmer">មើលទាំងអស់</button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3 font-medium">#</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer">ផលិតផល (Product)</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer text-right">ចំនួន (Qty)</th>
+                                    <th scope="col" className="px-6 py-3 font-medium font-khmer text-right">ប្រាក់ចំណូល (Revenue)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {branchAnalytics.topProducts.length === 0 ? (
+                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">No sales data yet.</td></tr>
+                                ) : (
+                                    branchAnalytics.topProducts.map((product, idx) => (
+                                        <tr key={idx} className="bg-white dark:bg-surface-dark hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{idx + 1}</td>
+                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{product.name}</td>
+                                            <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300"><span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-xs font-bold">{product.qty}</span></td>
+                                            <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">${product.revenue.toFixed(2)}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <footer className="mt-8 text-center text-xs text-slate-400 pb-4 font-khmer">
+                <p>© 2024 QuickBill KH. រក្សាសិទ្ធិគ្រប់យ៉ាង។</p>
+            </footer>
+        </div>
+    );
+};
+
+export default Dashboard;
