@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard: React.FC = () => {
     const { 
@@ -8,6 +9,7 @@ const Dashboard: React.FC = () => {
         branches, currentBranch, setCurrentBranch, customers 
     } = useData();
     const [chartPeriod, setChartPeriod] = useState<'Weekly' | 'Monthly'>('Weekly');
+    const { role, loading: authLoading } = useAuth();
     
     // Store Link Logic
     const [copied, setCopied] = useState(false);
@@ -109,6 +111,27 @@ const Dashboard: React.FC = () => {
 
     // Latest Invoices (Last 5)
     const latestInvoices = [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+    if (authLoading) {
+        return <div className="flex h-screen items-center justify-center"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
+    }
+
+    if (role === 'customer') {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-slate-50 dark:bg-slate-900">
+                <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg max-w-md">
+                    <span className="material-icons-outlined text-6xl text-red-500 mb-4">gpp_bad</span>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Unauthorized Access</h1>
+                    <p className="text-slate-500 dark:text-slate-400 mb-6">
+                        This area is for shop administrators only. Please visit the store to place orders.
+                    </p>
+                    <a href="/store" className="inline-flex items-center justify-center px-6 py-3 bg-primary hover:bg-primary-dark text-white font-medium rounded-xl transition-colors">
+                        Go to Store
+                    </a>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8 h-full">
