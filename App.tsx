@@ -6,7 +6,7 @@ import Storefront from './src/pages/Storefront';
 import TrackOrder from './src/pages/TrackOrder';
 import Login from './components/Login';
 import OrderHistory from './src/pages/OrderHistory';
-// Sidebar removed here, it's now in MainLayout
+import SetupShop from './src/pages/SetupShop';
 import MainLayout from './components/MainLayout';
 import Dashboard from './components/Dashboard';
 import PosTerminal from './components/PosTerminal';
@@ -94,6 +94,7 @@ const POSAppContent = () => {
   if (currentView === 'shop-onboarding') return <ShopOnboarding />;
   if (currentView === 'forgot-password') return <ForgotPassword />;
   if (currentView === 'order-tracking') return <OrderTracking />; 
+  if (currentView === 'setupShop') return <SetupShop />;
 
   // 2. Authentication Check
   if (!user) {
@@ -112,7 +113,6 @@ const POSAppContent = () => {
   if (currentView === 'tenant-list') return <TenantList />;
   if (currentView === 'not-found') return <NotFound404 />;
 
-  // 5. Main Application Layout
   return (
     <>
         <MainLayout>
@@ -187,6 +187,7 @@ export default function App() {
           <Route path="/store/:shopId" element={<Storefront />} />
           <Route path="/store/:shopId/track" element={<TrackOrder />} />
           <Route path="/store/:shopId/history" element={<OrderHistory />} />
+          <Route path="/setup-shop" element={<SetupShop />} />
 
           {/* Private POS Application Routes - Requires authentication via DataProvider */}
           <Route path="/*" element={<POSApp />} />

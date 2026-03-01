@@ -22,6 +22,7 @@ interface AuthContextType {
     shopId: string | null;
     loading: boolean;
     loginCustomer: () => Promise<void>;
+    loginAdminWithGoogle: () => Promise<void>;
     createAdminUserDoc: (user: User, shopName: string) => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -97,6 +98,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const loginAdminWithGoogle = async () => {
+        const provider = new GoogleAuthProvider();
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const currentUser = result.user;
+            
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (!userDoc.exists()) {
+                // New Admin User - Auto Register
+                const shopName = currentUser.displayName || 'My Shop';
+                const generatedShopId = shopName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 10000);
+                
+                await setDoc(userDocRef, {
+                    email: currentUser.email,
+                    role: 'admin',
+                    shopId: generatedShopId,
+                    createdAt: serverTimestamp(),
+                    displayName: currentUser.displayName,
+                    photoURL: currentUser.photoURL
+                });
+                
+                setRole('admin');
+                setShopId(generatedShopId);
+            } else {
+                // Existing User
+                const data = userDoc.data();
+                setRole(data.role as UserRole);
+                setShopId(data.shopId || null);
+            }
+        } catch (error) {
+            console.error("Admin Google login failed", error);
+            throw error;
+        }
+    };
+
     const createAdminUserDoc = async (currentUser: User, shopName: string) => {
         const generatedShopId = shopName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.floor(Math.random() * 10000);
         const userDocRef = doc(db, 'users', currentUser.uid);
@@ -115,7 +153,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const logout = () => firebaseSignOut(auth);
 
     return (
-        <AuthContext.Provider value={{ user, role, shopId, loading, loginCustomer, createAdminUserDoc, logout }}>
+        <AuthContext.Provider value={{ user, role, shopId, loading, loginCustomer, loginAdminWithGoogle, createAdminUserDoc, logout }}>
             {children}
         </AuthContext.Provider>
     );

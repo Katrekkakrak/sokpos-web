@@ -183,7 +183,7 @@ const Login: React.FC = () => {
                                 >
                                     {loading ? (
                                         <>
-                                            <span className="material-icons-round animate-spin mr-2 text-lg">loop</span>
+                                            <span className="animate-spin mr-2 text-lg material-icons-round">sync</span>
                                             កំពុងចុះឈ្មោះ...
                                         </>
                                     ) : (
@@ -269,7 +269,7 @@ const Login: React.FC = () => {
                                 >
                                     {loading ? (
                                         <>
-                                            <span className="material-icons-round animate-spin mr-2 text-lg">loop</span>
+                                            <span className="animate-spin mr-2 text-lg material-icons-round">sync</span>
                                             កំពុងចូល...
                                         </>
                                     ) : (

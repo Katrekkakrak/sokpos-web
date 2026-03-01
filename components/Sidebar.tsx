@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
+import UserProfileDrawer from '../src/components/UserProfileDrawer';
 
 const Sidebar: React.FC = () => {
     const { setCurrentView, currentView, user, isSidebarOpen, setIsSidebarOpen } = useData();
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Active state helpers
     const isInventoryActive = ['inventory-list', 'product-form', 'stock-adjustment', 'barcode-generator'].includes(currentView);
@@ -147,10 +149,13 @@ const Sidebar: React.FC = () => {
                     </div>
                 </div>
 
-                {/* User Profile Stub */}
+                {/* User Profile Section */}
                 {user && (
                     <div className="p-4 border-t border-slate-200 dark:border-slate-700">
-                        <div className="flex items-center gap-3">
+                        <div 
+                            onClick={() => setIsProfileOpen(true)}
+                            className="flex items-center gap-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        >
                             <img 
                                 src={user.avatar} 
                                 alt="Admin Profile" 
@@ -164,6 +169,8 @@ const Sidebar: React.FC = () => {
                     </div>
                 )}
             </aside>
+
+            <UserProfileDrawer isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
         </>
     );
 };

@@ -2,18 +2,40 @@ import React, { useState } from 'react';
 import { useData, Staff } from '../context/DataContext';
 
 const StaffManagement: React.FC = () => {
-    const { staff, addStaff, updateStaffStatus, setCurrentView } = useData();
+    const { staff, addStaff, updateStaff, deleteStaff, updateStaffStatus, setCurrentView } = useData();
     const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [newStaff, setNewStaff] = useState<Partial<Staff>>({
-        name: '', email: '', role: 'Cashier', pin: '', status: 'Active'
+        name: '', email: '', role: 'Cashier', password: '', status: 'Active'
     });
 
-    const handleAdd = () => {
-        if (newStaff.name && newStaff.pin) {
-            addStaff(newStaff);
-            setIsSlideOverOpen(false);
-            setNewStaff({ name: '', email: '', role: 'Cashier', pin: '', status: 'Active' });
+    const handleSubmit = async () => {
+        if (newStaff.name && newStaff.email && (editingId || (newStaff.password && newStaff.password.length >= 6))) {
+            if (editingId) {
+                await updateStaff(editingId, newStaff);
+            } else {
+                await addStaff(newStaff);
+            }
+            handleClose();
         }
+    };
+
+    const handleEdit = (staffMember: Staff) => {
+        setNewStaff(staffMember);
+        setEditingId(staffMember.id);
+        setIsSlideOverOpen(true);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm('តើអ្នកពិតជាចង់លុບບុគ្គលិកនេះមែនទេ? (Are you sure you want to delete this staff?)')) {
+            await deleteStaff(id);
+        }
+    };
+
+    const handleClose = () => {
+        setIsSlideOverOpen(false);
+        setNewStaff({ name: '', email: '', role: 'Cashier', password: '', status: 'Active' });
+        setEditingId(null);
     };
 
     const toggleStatus = (id: string, currentStatus: string) => {
@@ -78,7 +100,7 @@ const StaffManagement: React.FC = () => {
                                     <tr className="border-b border-slate-200 bg-slate-50/50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-400">
                                         <th className="px-6 py-4 font-semibold">ឈ្មោះបុគ្គលិក (Staff Name)</th>
                                         <th className="px-6 py-4 font-semibold">តួនាទី (Role)</th>
-                                        <th className="px-6 py-4 font-semibold">លេខសម្ងាត់ (PIN)</th>
+                                        <th className="px-6 py-4 font-semibold">គណនី (Account)</th>
                                         <th className="px-6 py-4 font-semibold">ស្ថានភាព (Status)</th>
                                         <th className="px-6 py-4 text-right font-semibold">សកម្មភាព (Actions)</th>
                                     </tr>
@@ -88,13 +110,13 @@ const StaffManagement: React.FC = () => {
                                         <tr key={s.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    {s.avatar.startsWith('http') ? (
+                                                    {s.avatar && s.avatar.startsWith('http') ? (
                                                         <div className="h-10 w-10 overflow-hidden rounded-full bg-slate-100">
                                                             <img src={s.avatar} alt={s.name} className="h-full w-full object-cover" />
                                                         </div>
                                                     ) : (
                                                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                                                            {s.avatar}
+                                                            {s.avatar ? s.avatar : s.name.substring(0, 2).toUpperCase()}
                                                         </div>
                                                     )}
                                                     <div className="flex flex-col">
@@ -116,11 +138,9 @@ const StaffManagement: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-slate-500">
-                                                <div className="flex items-center gap-1">
-                                                    {[...Array(4)].map((_, i) => (
-                                                        <span key={i} className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                                                    ))}
-                                                </div>
+                                                <span className="text-xs font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-600 dark:text-slate-400">
+                                                    Email Login
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center">
@@ -138,10 +158,10 @@ const StaffManagement: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-primary dark:hover:bg-slate-700 transition-colors">
+                                                    <button onClick={() => handleEdit(s)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-primary dark:hover:bg-slate-700 transition-colors">
                                                         <span className="material-symbols-outlined text-[20px]">edit</span>
                                                     </button>
-                                                    <button className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors">
+                                                    <button onClick={() => handleDelete(s.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors">
                                                         <span className="material-symbols-outlined text-[20px]">delete</span>
                                                     </button>
                                                 </div>
@@ -175,16 +195,18 @@ const StaffManagement: React.FC = () => {
             {/* Slide-over / Side Panel for Add Staff */}
             {isSlideOverOpen && (
                 <div className="absolute inset-0 z-50 flex">
-                    <div className="flex-1 bg-slate-900/50 backdrop-blur-sm transition-opacity" onClick={() => setIsSlideOverOpen(false)}></div>
+                    <div className="flex-1 bg-slate-900/50 backdrop-blur-sm transition-opacity" onClick={handleClose}></div>
                     <div className="flex w-full max-w-md flex-col bg-white shadow-2xl dark:bg-slate-900 animate-slide-in-right">
                         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-                            <h2 className="khmer-text text-lg font-bold text-slate-900 dark:text-white">បុគ្គលិកថ្មី (New Staff)</h2>
-                            <button onClick={() => setIsSlideOverOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                            <h2 className="khmer-text text-lg font-bold text-slate-900 dark:text-white">
+                                {editingId ? 'កែប្រែព័ត៌មានបុគ្គលិក (Edit Staff)' : 'បុគ្គលិកថ្មី (New Staff)'}
+                            </h2>
+                            <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                                 <span className="material-symbols-outlined">close</span>
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6">
-                            <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); handleAdd(); }}>
+                            <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
                                 {/* Name Input */}
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">ឈ្មោះបុគ្គលិក (Full Name)</label>
@@ -198,7 +220,7 @@ const StaffManagement: React.FC = () => {
                                 </div>
                                 {/* Email Input */}
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">អ៊ីមែល (Email - Optional)</label>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">អ៊ីមែល (Email - Required)</label>
                                     <input 
                                         type="email"
                                         value={newStaff.email}
@@ -232,30 +254,30 @@ const StaffManagement: React.FC = () => {
                                         ))}
                                     </div>
                                 </div>
-                                {/* PIN Code */}
+                                {/* Password Input */}
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">លេខសម្ងាត់ (PIN Code)</label>
+                                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">ពាក្យសម្ងាត់ (Password)</label>
                                     <div className="relative">
                                         <input 
                                             type="password"
-                                            value={newStaff.pin}
-                                            onChange={e => setNewStaff({ ...newStaff, pin: e.target.value })}
+                                            value={newStaff.password}
+                                            onChange={e => setNewStaff({ ...newStaff, password: e.target.value })}
                                             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono tracking-widest focus:border-primary focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white" 
-                                            maxLength={4} 
-                                            placeholder="****" 
+                                            minLength={6}
+                                            placeholder={editingId ? "Leave blank to keep current" : "******"} 
                                         />
                                         <button className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600" type="button">
                                             <span className="material-symbols-outlined text-lg">visibility</span>
                                         </button>
                                     </div>
-                                    <p className="text-xs text-slate-500">4-digit code for POS login.</p>
+                                    <p className="text-xs text-slate-500">Minimum 6 characters for login.</p>
                                 </div>
                             </form>
                         </div>
                         <div className="border-t border-slate-200 p-6 dark:border-slate-800">
                             <div className="flex gap-3">
-                                <button onClick={() => setIsSlideOverOpen(false)} className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">Cancel</button>
-                                <button onClick={handleAdd} className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600">Save Staff</button>
+                                <button onClick={handleClose} className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">Cancel</button>
+                                <button onClick={handleSubmit} className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-600">Save Staff</button>
                             </div>
                         </div>
                     </div>

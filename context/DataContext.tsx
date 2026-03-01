@@ -1,9 +1,10 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { sendLowStockAlert, sendReceiptAlert } from '../utils/telegramAlert';
-import { auth, db } from '../src/config/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, deleteDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { auth, db, app } from '../src/config/firebase';
+import { initializeApp as initApp, deleteApp as delApp } from 'firebase/app';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getAuth } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, deleteDoc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore';
 
 // --- Types ---
 
@@ -173,9 +174,11 @@ export interface Staff {
     name: string;
     email: string;
     role: 'Admin' | 'Cashier' | 'Packer';
-    pin: string;
+    password?: string; // Changed from pin to password (optional because not stored in DB)
     status: 'Active' | 'Inactive';
     avatar: string;
+    tenantId?: string; 
+    isStaff?: boolean;
 }
 
 export interface Tenant {
@@ -365,6 +368,8 @@ export interface User {
     name: string;
     role: string;
     avatar: string;
+    tenantId?: string;
+    isStaff?: boolean;
 }
 
 export interface ShopSettings {
@@ -525,8 +530,12 @@ interface DataContextType {
 
     // Staff
     staff: Staff[];
-    addStaff: (staff: Partial<Staff>) => void;
-    updateStaffStatus: (id: string, status: string) => void;
+    addStaff: (staff: Partial<Staff>) => Promise<void>;
+    currentStaff: Staff | null;
+    setCurrentStaff: (staff: Staff | null) => void;
+    updateStaff: (id: string, staff: Partial<Staff>) => Promise<void>;
+    deleteStaff: (id: string) => Promise<void>;
+    updateStaffStatus: (id: string, status: string) => Promise<void>;
     roles: Role[];
     updateRolePermissions: (roleId: string, permissions: Permission[]) => void;
 
@@ -597,6 +606,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         let settingsUnsubscribe: (() => void) | null = null;
         let purchaseOrdersUnsubscribe: (() => void) | null = null;
         let stockAdjustmentsUnsubscribe: (() => void) | null = null;
+        let staffUnsubscribe: (() => void) | null = null;
 
         const authUnsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             // Cleanup previous subscriptions
@@ -628,127 +638,188 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 stockAdjustmentsUnsubscribe();
                 stockAdjustmentsUnsubscribe = null;
             }
+            if (staffUnsubscribe) {
+                staffUnsubscribe();
+                staffUnsubscribe = null;
+            }
 
             if (currentUser) {
-                // Fetch shop details from Firestore 'tenants' collection
+                let resolvedTenantId: string | null = null;
+
+                // 1st Check: User is a Shop Owner
                 const shopDoc = await getDoc(doc(db, 'tenants', currentUser.uid));
                 if (shopDoc.exists()) {
-                    setUser({ uid: currentUser.uid, email: currentUser.email, role: 'Super Admin', ...shopDoc.data() });
+                    const shopData = shopDoc.data();
+                    resolvedTenantId = currentUser.uid;
+                    setUser({
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        tenantId: resolvedTenantId,
+                        isStaff: false,
+                        role: 'Super Admin', // Or derive from shopData if available
+                        ...shopData
+                    });
                     setCurrentView('dashboard');
                 } else {
-                    setUser({ uid: currentUser.uid, email: currentUser.email, name: 'Unknown Shop', role: 'Super Admin' });
+                    // 2nd Check: User is a Staff Member
+                    const userLookup = await getDoc(doc(db, 'users', currentUser.uid));
+                    if (userLookup.exists()) {
+                        const lookupData = userLookup.data();
+                        resolvedTenantId = lookupData.tenantId;
+
+                        // Fetch staff details from the tenant's subcollection
+                        const staffDoc = await getDoc(doc(db, 'tenants', resolvedTenantId, 'staff', currentUser.uid));
+                        if (staffDoc.exists()) {
+                            const staffData = staffDoc.data();
+                            setUser({
+                                uid: currentUser.uid,
+                                email: currentUser.email,
+                                tenantId: resolvedTenantId,
+                                isStaff: true,
+                                ...staffData // This includes role, name, etc.
+                            });
+                            setCurrentView('dashboard');
+                        } else {
+                            // Staff record doesn't exist, handle error (e.g., logout)
+                            console.error("Staff member authenticated but no details found in tenant's staff list.");
+                            setUser(null);
+                            setCurrentView('login');
+                        }
+                    } else {
+                        // Else: New user, redirect to setup
+                        setUser({ uid: currentUser.uid, email: currentUser.email });
+                        setCurrentView('setupShop');
+                    }
                 }
 
-                // Set up real-time listener for tenant's products
-                productsUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'products'),
-                    (snapshot) => {
-                        const productsData = snapshot.docs.map(doc => ({
-                            id: parseInt(doc.id) || doc.id,
-                            ...doc.data()
-                        })) as Product[];
-                        setProducts(productsData);
-                        console.log(`✅ Products synced from Firestore: ${productsData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing products:', error);
-                    }
-                );
-
-                // Set up real-time listener for tenant's orders
-                ordersUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'orders'),
-                    (snapshot) => {
-                        const ordersData = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        })) as Order[];
-                        setOrders(ordersData);
-                        console.log(`✅ Orders synced from Firestore: ${ordersData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing orders:', error);
-                    }
-                );
-
-                // Set up real-time listener for tenant's customers
-                customersUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'customers'),
-                    (snapshot) => {
-                        const customersData = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        })) as Contact[];
-                        setCustomers(customersData);
-                        console.log(`✅ Customers synced from Firestore: ${customersData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing customers:', error);
-                    }
-                );
-
-                // Set up real-time listener for tenant's online orders
-                onlineOrdersUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'onlineOrders'),
-                    (snapshot) => {
-                        const onlineOrdersData = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        })) as OnlineOrder[];
-                        setOnlineOrders(onlineOrdersData);
-                        console.log(`✅ Online Orders synced from Firestore: ${onlineOrdersData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing online orders:', error);
-                    }
-                );
-
-                // Set up real-time listener for tenant's settings (single document)
-                settingsUnsubscribe = onSnapshot(
-                    doc(db, 'tenants', currentUser.uid, 'settings', 'shopSettings'),
-                    (docSnapshot) => {
-                        if (docSnapshot.exists()) {
-                            const settingsData = docSnapshot.data() as ShopSettings;
-                            setShopSettings(settingsData);
-                            console.log(`✅ Shop Settings synced from Firestore`);
+                if (resolvedTenantId) {
+                    // Set up real-time listener for tenant's products
+                    productsUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'products'),
+                        (snapshot) => {
+                            const productsData = snapshot.docs.map(doc => ({
+                                id: parseInt(doc.id) || doc.id,
+                                ...doc.data()
+                            })) as Product[];
+                            setProducts(productsData);
+                            console.log(`✅ Products synced from Firestore: ${productsData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing products:', error);
                         }
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing shop settings:', error);
-                    }
-                );
+                    );
 
-                // Set up real-time listener for tenant's purchase orders
-                purchaseOrdersUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'purchaseOrders'),
-                    (snapshot) => {
-                        const purchaseOrdersData = snapshot.docs.map(doc => ({
-                            id: doc.id,
-                            ...doc.data()
-                        })) as PurchaseOrder[];
-                        setPurchaseOrders(purchaseOrdersData);
-                        console.log(`✅ Purchase Orders synced from Firestore: ${purchaseOrdersData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing purchase orders:', error);
-                    }
-                );
+                    // Set up real-time listener for tenant's orders
+                    ordersUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'orders'),
+                        (snapshot) => {
+                            const ordersData = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            })) as Order[];
+                            setOrders(ordersData);
+                            console.log(`✅ Orders synced from Firestore: ${ordersData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing orders:', error);
+                        }
+                    );
 
-                // Set up real-time listener for tenant's stock adjustments
-                stockAdjustmentsUnsubscribe = onSnapshot(
-                    collection(db, 'tenants', currentUser.uid, 'stockAdjustments'),
-                    (snapshot) => {
-                        const adjustmentsData = snapshot.docs.map(doc => ({
-                            id: parseInt(doc.id) || doc.id,
-                            ...doc.data()
-                        })) as unknown as StockAdjustment[];
-                        setStockAdjustments(adjustmentsData);
-                        console.log(`✅ Stock Adjustments synced from Firestore: ${adjustmentsData.length} items`);
-                    },
-                    (error) => {
-                        console.error('❌ Error syncing stock adjustments:', error);
-                    }
-                );
+                    // Set up real-time listener for tenant's customers
+                    customersUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'customers'),
+                        (snapshot) => {
+                            const customersData = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            })) as Contact[];
+                            setCustomers(customersData);
+                            console.log(`✅ Customers synced from Firestore: ${customersData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing customers:', error);
+                        }
+                    );
+
+                    // Set up real-time listener for tenant's online orders
+                    onlineOrdersUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'onlineOrders'),
+                        (snapshot) => {
+                            const onlineOrdersData = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            })) as OnlineOrder[];
+                            setOnlineOrders(onlineOrdersData);
+                            console.log(`✅ Online Orders synced from Firestore: ${onlineOrdersData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing online orders:', error);
+                        }
+                    );
+
+                    // Set up real-time listener for tenant's settings (single document)
+                    settingsUnsubscribe = onSnapshot(
+                        doc(db, 'tenants', resolvedTenantId, 'settings', 'shopSettings'),
+                        (docSnapshot) => {
+                            if (docSnapshot.exists()) {
+                                const settingsData = docSnapshot.data() as ShopSettings;
+                                setShopSettings(settingsData);
+                                console.log(`✅ Shop Settings synced from Firestore`);
+                            }
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing shop settings:', error);
+                        }
+                    );
+
+                    // Set up real-time listener for tenant's purchase orders
+                    purchaseOrdersUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'purchaseOrders'),
+                        (snapshot) => {
+                            const purchaseOrdersData = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            })) as PurchaseOrder[];
+                            setPurchaseOrders(purchaseOrdersData);
+                            console.log(`✅ Purchase Orders synced from Firestore: ${purchaseOrdersData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing purchase orders:', error);
+                        }
+                    );
+
+                    // Set up real-time listener for tenant's stock adjustments
+                    stockAdjustmentsUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'stockAdjustments'),
+                        (snapshot) => {
+                            const adjustmentsData = snapshot.docs.map(doc => ({
+                                id: parseInt(doc.id) || doc.id,
+                                ...doc.data()
+                            })) as unknown as StockAdjustment[];
+                            setStockAdjustments(adjustmentsData);
+                            console.log(`✅ Stock Adjustments synced from Firestore: ${adjustmentsData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing stock adjustments:', error);
+                        }
+                    );
+
+                    // Set up real-time listener for tenant's staff
+                    staffUnsubscribe = onSnapshot(
+                        collection(db, 'tenants', resolvedTenantId, 'staff'),
+                        (snapshot) => {
+                            const staffData = snapshot.docs.map(doc => ({
+                                id: doc.id,
+                                ...doc.data()
+                            })) as Staff[];
+                            setStaff(staffData);
+                            console.log(`✅ Staff synced from Firestore: ${staffData.length} items`);
+                        },
+                        (error) => {
+                            console.error('❌ Error syncing staff:', error);
+                        }
+                    );
+                }
             } else {
                 setUser(null);
                 setCurrentView('login');
@@ -759,6 +830,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setShopSettings({ name: '', phone: '', email: '', address: '', logo: '', timezone: '', currency: '', taxRate: 0 });
                 setPurchaseOrders([]);
                 setStockAdjustments([]);
+                setStaff([]);
             }
             setAuthLoading(false);
         });
@@ -785,6 +857,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
             if (stockAdjustmentsUnsubscribe) {
                 stockAdjustmentsUnsubscribe();
+            }
+            if (staffUnsubscribe) {
+                staffUnsubscribe();
             }
         };
     }, []);
@@ -870,9 +945,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ]);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
 
-    const [staff, setStaff] = useState<Staff[]>([
-        { id: 'st1', name: 'Sokha Dara', email: 'dara@shop.com', role: 'Admin', pin: '1234', status: 'Active', avatar: '' }
-    ]);
+    const [staff, setStaff] = useState<Staff[]>([]);
+const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     const [roles, setRoles] = useState<Role[]>([
         { id: 'r1', name: 'Admin', nameKh: 'អ្នកគ្រប់គ្រង', isSystem: true, permissions: [{id: 'p1', name: 'Full Access', nameKh: 'សិទ្ធិពេញលេញ', group: 'Settings', enabled: true}] }
     ]);
@@ -1761,12 +1835,74 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setOnlineOrders(prev => prev.map(o => ids.includes(o.id) ? { ...o, paymentStatus: 'Settled' as any } : o));
     };
 
-    const addStaff = (newStaff: Partial<Staff>) => {
-        setStaff(prev => [...prev, { id: `st-${Date.now()}`, name: '', email: '', role: 'Cashier', pin: '', status: 'Active', avatar: '', ...newStaff } as Staff]);
+    const addStaff = async (staffData: Partial<Staff>) => {
+        // ដូរពី currentUser ទៅ user ឲ្យត្រូវនឹង State របស់ bro
+        if (!user || !staffData.email || !staffData.password) {
+            alert("សូមបំពេញ Email និង Password ឲ្យបានត្រឹមត្រូវ!");
+            return;
+        }
+
+        try {
+            // ប្រើ initApp ព្រោះខាងលើ bro បាន import ដាក់ឈ្មោះកាត់បែបនេះ
+            const secondaryApp = initApp(app.options, `StaffApp-${Date.now()}`);
+            const secondaryAuth = getAuth(secondaryApp);
+
+            // 1. បង្កើតគណនីចូលប្រព័ន្ធ (Firebase Auth)
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, staffData.email, staffData.password);
+            const newUid = userCredential.user.uid;
+
+            // 2. បិទ Secondary App វិញភ្លាមៗ (ប្រើ delApp)
+            await secondaryAuth.signOut();
+            await delApp(secondaryApp);
+
+            // 3. រក្សាទុកទិន្នន័យចូល Database (Firestore)
+            const staffRef = doc(db, 'tenants', user.uid, 'staff', newUid);
+            await setDoc(staffRef, {
+                ...staffData,
+                id: newUid,
+                status: 'Active',
+                createdAt: new Date()
+            });
+
+            // Add a global lookup document for the staff member
+            await setDoc(doc(db, 'users', newUid), { tenantId: user.uid, role: staffData.role, isStaff: true });
+
+            alert("បង្កើតគណនីបុគ្គលិកបានជោគជ័យ! (Success)");
+
+        } catch (error: any) {
+            console.error("🔥 Firebase Auth Error:", error);
+            alert("បរាជ័យក្នុងការបង្កើតគណនី: " + error.message);
+        }
     };
 
-    const updateStaffStatus = (id: string, status: string) => {
-        setStaff(prev => prev.map(s => s.id === id ? { ...s, status: status as any } : s));
+    const updateStaff = async (id: string, data: Partial<Staff>) => {
+        if (!user) return;
+        try {
+            await updateDoc(doc(db, 'tenants', user.uid, 'staff', id), data);
+            console.log(`✅ Staff updated: ${id}`);
+        } catch (error) {
+            console.error('❌ Error updating staff:', error);
+        }
+    };
+
+    const deleteStaff = async (id: string) => {
+        if (!user) return;
+        try {
+            await deleteDoc(doc(db, 'tenants', user.uid, 'staff', id));
+            console.log(`✅ Staff deleted: ${id}`);
+        } catch (error) {
+            console.error('❌ Error deleting staff:', error);
+        }
+    };
+
+    const updateStaffStatus = async (id: string, status: string) => {
+        if (!user) return;
+        try {
+            await updateDoc(doc(db, 'tenants', user.uid, 'staff', id), { status });
+            console.log(`✅ Staff status updated: ${id} -> ${status}`);
+        } catch (error) {
+            console.error('❌ Error updating staff status:', error);
+        }
     };
 
     const updateRolePermissions = (roleId: string, permissions: Permission[]) => {
@@ -1874,7 +2010,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             removeHoldOrder, settleCOD, customers, leads, selectedContact, setSelectedContact, editingContact,
             setEditingContact, addLead, addCustomer, updateCustomer, deleteCustomer, updateLead, addDeposit, feedbacks, loyaltySettings,
             saveLoyaltySettings, customerTiers, addCustomerTier, setEditingProduct, editingProduct, addProduct,
-            updateProduct, deleteProduct, adjustStock, performStockAudit, addStockTransfer, staff, addStaff, updateStaffStatus,
+            updateProduct, deleteProduct, adjustStock, performStockAudit, addStockTransfer, staff, addStaff, currentStaff, setCurrentStaff, updateStaff, deleteStaff, updateStaffStatus,
             roles, updateRolePermissions, suppliers, addSupplier, purchaseOrders, createPO, couriers, addCourier,
             shippingRates, updateShippingRate, shippingZones, setShippingZones, vouchers, createVoucher, sendBroadcastMessage, shopSettings,
             updateShopSettings, auditLogs, userSecurity, toggle2FA, activeSessions, revokeSession, notifications,
