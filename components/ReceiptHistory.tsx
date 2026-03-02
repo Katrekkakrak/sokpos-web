@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 
 const ReceiptHistory: React.FC = () => {
-    const { orders, setCurrentView, autoReceiptTelegram, setAutoReceiptTelegram } = useData();
+    const { orders, setCurrentView, autoReceiptTelegram, setAutoReceiptTelegram, shopSettings } = useData();
     const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(orders.length > 0 ? orders[0].id : null);
     const [filter, setFilter] = useState('All');
 
     const filteredOrders = orders.filter(o => {
         if (filter === 'All') return true;
         return o.status === filter; // Simplistic filter
-    });
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const selectedReceipt = orders.find(o => o.id === selectedReceiptId) || orders[0];
 
@@ -74,9 +74,13 @@ const ReceiptHistory: React.FC = () => {
                         <div className="flex-1 overflow-y-auto no-scrollbar pb-10 flex justify-center items-start pt-4 relative z-0">
                             <div className="thermal-paper bg-white text-black p-6 w-[380px] font-mono text-sm relative mb-10 shadow-lg">
                                 <div className="flex flex-col items-center mb-6 text-center">
-                                    <div className="w-12 h-12 mb-3 bg-slate-900 rounded-full flex items-center justify-center text-white"><span className="material-symbols-outlined">storefront</span></div>
-                                    <h2 className="text-xl font-bold uppercase tracking-tight mb-1">QuickBill Mart</h2>
-                                    <p className="text-xs text-slate-500">Phnom Penh, Cambodia</p>
+                                    {shopSettings?.logo ? (
+                                        <img src={shopSettings.logo} alt="Shop Logo" className="w-16 h-16 object-contain mb-3 grayscale mx-auto" />
+                                    ) : (
+                                        <div className="w-12 h-12 mb-3 bg-slate-900 rounded-full flex items-center justify-center text-white"><span className="material-symbols-outlined">storefront</span></div>
+                                    )}
+                                    <h2 className="text-xl font-bold uppercase tracking-tight mb-1">{shopSettings?.name || 'QuickBill Mart'}</h2>
+                                    <p className="text-xs text-slate-500">{shopSettings?.address || 'Phnom Penh, Cambodia'}</p>
                                 </div>
                                 <div className="border-b-2 border-dashed border-slate-300 pb-3 mb-3 text-xs">
                                     <div className="flex justify-between mb-1"><span className="text-slate-500">Receipt No:</span><span className="font-bold">{selectedReceipt.id}</span></div>

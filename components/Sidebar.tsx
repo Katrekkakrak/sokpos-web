@@ -11,6 +11,11 @@ const Sidebar: React.FC = () => {
     const isSettingsActive = ['shop-settings', 'hardware-setup', 'staff-management'].includes(currentView);
     const isAnalyticsActive = ['predictive-analytics', 'receipt-history'].includes(currentView);
 
+    // RBAC: Define restricted roles
+    const isOnlineSales = user?.role === 'online_sales';
+    const isOnlineSalesLead = user?.role === 'online_sales_lead';
+    const isRestrictedUser = isOnlineSales || isOnlineSalesLead;
+
     return (
         <>
             {/* Backdrop Overlay for Mobile */}
@@ -57,6 +62,7 @@ const Sidebar: React.FC = () => {
                         <span className="text-sm font-medium font-khmer">ផ្ទាំងគ្រប់គ្រង (Dashboard)</span>
                     </button>
 
+                    {!isOnlineSales && (
                     <button 
                         onClick={() => setCurrentView('pos')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'pos' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
@@ -64,6 +70,7 @@ const Sidebar: React.FC = () => {
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">storefront</span>
                         <span className="text-sm font-medium font-khmer">ការលក់ (POS)</span>
                     </button>
+                    )}
                     
                     <button 
                         onClick={() => setCurrentView('online-orders')}
@@ -103,6 +110,8 @@ const Sidebar: React.FC = () => {
                         )}
                     </div>
                     
+                    {!isOnlineSales && (
+                    <>
                     <button 
                         onClick={() => setCurrentView('receipt-history')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${isAnalyticsActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
@@ -118,11 +127,15 @@ const Sidebar: React.FC = () => {
                             <button onClick={() => setCurrentView('predictive-analytics')} className={`text-left py-1.5 text-sm ${currentView === 'predictive-analytics' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>📊 ព្យាករណ៍ (Forecast)</button>
                         </div>
                     )}
+                    </>
+                    )}
 
                     <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
                         <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-display">System</p>
                         
                         {/* Settings Group */}
+                        {!isRestrictedUser && (
+                        <>
                         <button 
                             onClick={() => setCurrentView('shop-settings')}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg group transition-colors ${isSettingsActive ? 'bg-primary/10 text-primary' : ''}`}
@@ -137,6 +150,8 @@ const Sidebar: React.FC = () => {
                                 <button onClick={() => setCurrentView('staff-management')} className={`text-left py-1.5 text-sm ${currentView === 'staff-management' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បុគ្គលិក (Staff)</button>
                                 <button onClick={() => setCurrentView('hardware-setup')} className={`text-left py-1.5 text-sm ${currentView === 'hardware-setup' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>Hardware</button>
                             </div>
+                        )}
+                        </>
                         )}
 
                         <button 

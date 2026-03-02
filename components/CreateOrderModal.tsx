@@ -5,7 +5,7 @@ import { CreditCard, Search, X, Plus, Minus, Trash2, User, MapPin, Package, Chec
 import AddLeadModal from './AddLeadModal';
 
 const CreateOrderModal: React.FC = () => {
-    const { setIsCreateOrderModalOpen, products, createOnlineOrder, customers, leads, draftOnlineOrder, setDraftOnlineOrder, shippingZones, editingOrder, setEditingOrder, updateOnlineOrder, prefillOrderData, setPrefillOrderData } = useData();
+    const { setIsCreateOrderModalOpen, products, createOnlineOrder, customers, leads, draftOnlineOrder, setDraftOnlineOrder, shippingZones, editingOrder, setEditingOrder, updateOnlineOrder, prefillOrderData, setPrefillOrderData, user } = useData();
     
     // --- Local State ---
     // Customer Logic
@@ -15,6 +15,12 @@ const CreateOrderModal: React.FC = () => {
     const [orderSource, setOrderSource] = useState('Facebook');
     const [isEditingAddress, setIsEditingAddress] = useState(false);
     const [tempAddress, setTempAddress] = useState('');
+
+    // Variant & UOM Selection State
+    const [showVariantModal, setShowVariantModal] = useState(false);
+    const [showUnitModal, setShowUnitModal] = useState(false);
+    const [selectedVariantProduct, setSelectedVariantProduct] = useState<any>(null);
+    const [selectedProductForUnit, setSelectedProductForUnit] = useState<any>(null);
 
     // New Customer Quick Add State
     const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
@@ -51,6 +57,9 @@ const CreateOrderModal: React.FC = () => {
     const customerRef = useRef<HTMLDivElement>(null);
     const productRef = useRef<HTMLDivElement>(null);
     const carrierRef = useRef<HTMLDivElement>(null);
+
+    // Permission Check for Discount
+    const canApplyDiscount = ['Admin', 'Super Admin', 'online_sales_lead'].includes(user?.role || '');
 
     // --- Constants ---
     const CARRIERS = [
@@ -288,19 +297,119 @@ const CreateOrderModal: React.FC = () => {
 
     // --- Product & Cart Handlers ---
 
-    const addToCart = (product: Product) => {
-        // Prevent if stock is 0
-        if ((product.stock || 0) <= 0 && product.status !== 'In Stock') return;
-
+    // Helper to add item to local cart (replaces direct setItems in addToCart)
+    const addItemToCart = (product: any, quantity = 1, unitData?: any) => {
         setItems(prev => {
-            const exists = prev.find(i => i.id === product.id);
-            if (exists) {
-                return prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            const variantId = product.variantId;
+            const unitId = unitData?.unitId;
+
+            const existingIndex = prev.findIndex(item => 
+                item.id === product.id && 
+                item.variantId === variantId && 
+                item.unitId === unitId
+            );
+
+            if (existingIndex > -1) {
+                const updatedItems = [...prev];
+                updatedItems[existingIndex].quantity += quantity;
+                return updatedItems;
+            } else {
+                const cartItem: CartItem = {
+                    ...product,
+                    quantity,
+                    variantId,
+                    ...(unitData && {
+                        unitId: unitData.unitId,
+                        selectedUnit: unitData.selectedUnit,
+                        multiplier: unitData.multiplier,
+                        selectedUnitPrice: unitData.price
+                    })
+                };
+                return [...prev, cartItem];
             }
-            return [...prev, { ...product, quantity: 1 }];
         });
+    };
+
+    // Helper function to determine if a product is out of stock
+    const isProductOutOfStock = (product: any): boolean => {
+        if (product.variants && product.variants.length > 0) {
+            return product.variants.every((v: any) => (v.stock || 0) <= 0);
+        }
+        return (product.stock || 0) <= 0 && product.status !== 'In Stock';
+    };
+
+    const addToCart = (product: Product) => {
+        // Prevent adding if out of stock
+        if (isProductOutOfStock(product)) {
+            return;
+        }
+
+        // If product has variants, show variant selection modal
+        if (product.variants && product.variants.length > 0) {
+            setSelectedVariantProduct(product);
+            setShowVariantModal(true);
+            setProductSearch('');
+            setShowProductDropdown(false);
+            return;
+        }
+
+        // If product has multiple units, show unit selection modal
+        if (product.units && product.units.length > 1) {
+            setSelectedProductForUnit(product);
+            setShowUnitModal(true);
+            setProductSearch('');
+            setShowProductDropdown(false);
+            return;
+        } else if (product.units && product.units.length === 1) {
+            // Single unit - add directly with unit data
+            const unit = product.units[0];
+            addItemToCart({ ...product, price: unit.price }, 1, {
+                unitId: unit.unitId,
+                selectedUnit: unit.name,
+                multiplier: unit.multiplier,
+                price: unit.price
+            });
+            setProductSearch('');
+            setShowProductDropdown(false);
+            return;
+        }
+
+        // No units/variants - add directly
+        addItemToCart(product);
         setProductSearch('');
         setShowProductDropdown(false);
+    };
+
+    const handleVariantSelect = (variant: any) => {
+        if (selectedVariantProduct) {
+            const cartItem = {
+                ...selectedVariantProduct,
+                variantId: variant.id,
+                name: `${selectedVariantProduct.name} (${variant.name})`,
+                nameKh: `${selectedVariantProduct.nameKh || selectedVariantProduct.name} (${variant.name})`,
+                price: variant.price,
+                sku: variant.sku,
+                stock: variant.stock,
+                units: [],
+                variants: [],
+            };
+            addItemToCart(cartItem);
+        }
+        setShowVariantModal(false);
+        setSelectedVariantProduct(null);
+    };
+
+    const handleUnitSelected = (unit: any) => {
+        if (selectedProductForUnit) {
+            addItemToCart({ ...selectedProductForUnit, price: unit.price }, 1, {
+                unitId: unit.unitId,
+                selectedUnit: unit.name,
+                multiplier: unit.multiplier,
+                price: unit.price
+            });
+        }
+        setShowUnitModal(false);
+        setSelectedProductForUnit(null);
     };
 
     const updateQty = (id: number, delta: number) => {
@@ -1076,6 +1185,7 @@ const CreateOrderModal: React.FC = () => {
                                 </div>
                                 
                                 {/* Discount Field */}
+                                {canApplyDiscount && (
                                 <div className="flex justify-between items-center text-sm">
                                     <div className="flex flex-col">
                                         <span className="text-slate-600 dark:text-slate-400 font-khmer">បញ្ចុះតម្លៃ (Discount)</span>
@@ -1102,6 +1212,7 @@ const CreateOrderModal: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
+                                )}
 
                                 {/* Delivery Zone & Fee */}
                                 <div className="pt-3 border-t border-dashed border-slate-200 dark:border-slate-700 flex flex-col gap-3">
@@ -1184,6 +1295,78 @@ const CreateOrderModal: React.FC = () => {
                 onClose={() => setShowNewCustomerModal(false)}
                 onSuccess={handleCustomerAdded}
             />
+
+            {/* Variant Selection Modal */}
+            {showVariantModal && selectedVariantProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 w-96 max-w-[90vw] animate-in scale-in duration-200 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white font-khmer">Select Variant</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{selectedVariantProduct.nameKh}</p>
+                            </div>
+                            <button onClick={() => setShowVariantModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                            {selectedVariantProduct.variants?.map((variant: any) => {
+                                const isVariantOutOfStock = (variant.stock || 0) <= 0;
+                                return (
+                                    <button
+                                        key={variant.id}
+                                        onClick={() => !isVariantOutOfStock && handleVariantSelect(variant)}
+                                        disabled={isVariantOutOfStock}
+                                        className={`w-full p-4 text-left border rounded-lg transition-all group ${isVariantOutOfStock ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 opacity-50 cursor-not-allowed' : 'border-slate-200 dark:border-slate-700 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10'}`}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h4 className="font-semibold text-slate-900 dark:text-white">{variant.name}</h4>
+                                                <p className={`text-xs mt-1 ${isVariantOutOfStock ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>Stock: {variant.stock || 0}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-primary group-hover:scale-110 transition-transform">${variant.price.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Unit Selection Modal */}
+            {showUnitModal && selectedProductForUnit && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[70]">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 w-96 max-w-[90vw] animate-in scale-in duration-200 border border-slate-200 dark:border-slate-700">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-slate-900 dark:text-white font-khmer">Select Unit</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{selectedProductForUnit.nameKh}</p>
+                            </div>
+                            <button onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {selectedProductForUnit.units?.map((unit: any) => (
+                                <button key={unit.unitId} onClick={() => handleUnitSelected(unit)} className="w-full p-4 text-left border border-slate-200 dark:border-slate-700 rounded-lg hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all group">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <h4 className="font-semibold text-slate-900 dark:text-white">{unit.name}</h4>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{unit.multiplier > 1 ? `1 ${unit.name} = ${unit.multiplier} base units` : 'Base unit'}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-primary group-hover:scale-110 transition-transform">${unit.price.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

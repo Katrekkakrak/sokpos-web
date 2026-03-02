@@ -4,7 +4,7 @@ import { sendLowStockAlert, sendReceiptAlert } from '../utils/telegramAlert';
 import { auth, db, app } from '../src/config/firebase';
 import { initializeApp as initApp, deleteApp as delApp } from 'firebase/app';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, getAuth } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, deleteDoc, onSnapshot, updateDoc, addDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, deleteDoc, onSnapshot, updateDoc, addDoc, collectionGroup } from 'firebase/firestore';
 
 // --- Types ---
 
@@ -55,6 +55,8 @@ export interface Contact {
   activities: Activity[];
   customData?: Record<string, any>;
   interestedProducts?: InterestedProduct[]; // New field
+  staffId?: string;
+  staffName?: string;
 }
 
 export interface ContactStage {
@@ -122,6 +124,7 @@ export interface CartItem extends Product {
     selectedUnit?: string;    // e.g., "Case", "Pack", "Can"
     multiplier?: number;      // e.g., 24 for Case (1 Case = 24 Cans)
     selectedUnitPrice?: number; // Price for this specific unit
+    variantId?: string;       // To distinguish between variants of the same product
 }
 
 export interface Order {
@@ -167,6 +170,8 @@ export interface OnlineOrder extends Order {
     deliveryDate?: string; // New: Scheduled Delivery Date
     bankSlipImage?: string | null; // Bank Slip Image URL or base64
     branchId?: string;
+    staffId?: string;
+    staffName?: string;
 }
 
 export interface Staff {
@@ -383,6 +388,7 @@ export interface ShopSettings {
     taxRate: number;
     telegramToken?: string;
     telegramChatId?: string;
+    branches?: Branch[];
 }
 
 export interface StockAdjustment {
@@ -448,9 +454,9 @@ interface DataContextType {
     selectedCategory: string;
     setSelectedCategory: (category: string) => void;
     cart: CartItem[];
-    addToCart: (product: Product, quantity?: number) => void; // Updated signature
-    removeFromCart: (id: number) => void;
-    updateQuantity: (id: number, delta: number) => void;
+    addToCart: (product: Product, quantity?: number, unitData?: any) => void;
+    removeFromCart: (id: number, variantId?: string, unitId?: string) => void;
+    updateQuantity: (id: number, delta: number, variantId?: string, unitId?: string) => void;
     clearCart: () => void;
     cartTotal: number;
     taxAmount: number;
@@ -474,7 +480,7 @@ interface DataContextType {
     editingOrder: OnlineOrder | null;
     setEditingOrder: (order: OnlineOrder | null) => void;
     updateOnlineOrder: (id: string, updatedData: any, preventRedirect?: boolean) => Promise<void>;
-    deleteOnlineOrder: (id: string) => void;
+    deleteOnlineOrder: (id: string) => Promise<void>;
     holdOrders: HoldOrder[];
     resumeOrder: (id: string) => void;
     removeHoldOrder: (id: string) => void;
@@ -597,273 +603,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [user, setUser] = useState<any | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
     
-    // --- Firebase Auth Listener with Multi-Tenant Streams (Products, Orders, Customers, OnlineOrders, Settings) ---
-    useEffect(() => {
-        let productsUnsubscribe: (() => void) | null = null;
-        let ordersUnsubscribe: (() => void) | null = null;
-        let customersUnsubscribe: (() => void) | null = null;
-        let onlineOrdersUnsubscribe: (() => void) | null = null;
-        let settingsUnsubscribe: (() => void) | null = null;
-        let purchaseOrdersUnsubscribe: (() => void) | null = null;
-        let stockAdjustmentsUnsubscribe: (() => void) | null = null;
-        let staffUnsubscribe: (() => void) | null = null;
-
-        const authUnsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            // Cleanup previous subscriptions
-            if (productsUnsubscribe) {
-                productsUnsubscribe();
-                productsUnsubscribe = null;
-            }
-            if (ordersUnsubscribe) {
-                ordersUnsubscribe();
-                ordersUnsubscribe = null;
-            }
-            if (customersUnsubscribe) {
-                customersUnsubscribe();
-                customersUnsubscribe = null;
-            }
-            if (onlineOrdersUnsubscribe) {
-                onlineOrdersUnsubscribe();
-                onlineOrdersUnsubscribe = null;
-            }
-            if (settingsUnsubscribe) {
-                settingsUnsubscribe();
-                settingsUnsubscribe = null;
-            }
-            if (purchaseOrdersUnsubscribe) {
-                purchaseOrdersUnsubscribe();
-                purchaseOrdersUnsubscribe = null;
-            }
-            if (stockAdjustmentsUnsubscribe) {
-                stockAdjustmentsUnsubscribe();
-                stockAdjustmentsUnsubscribe = null;
-            }
-            if (staffUnsubscribe) {
-                staffUnsubscribe();
-                staffUnsubscribe = null;
-            }
-
-            if (currentUser) {
-                let resolvedTenantId: string | null = null;
-
-                // 1st Check: User is a Shop Owner
-                const shopDoc = await getDoc(doc(db, 'tenants', currentUser.uid));
-                if (shopDoc.exists()) {
-                    const shopData = shopDoc.data();
-                    resolvedTenantId = currentUser.uid;
-                    setUser({
-                        uid: currentUser.uid,
-                        email: currentUser.email,
-                        tenantId: resolvedTenantId,
-                        isStaff: false,
-                        role: 'Super Admin', // Or derive from shopData if available
-                        ...shopData
-                    });
-                    setCurrentView('dashboard');
-                } else {
-                    // 2nd Check: User is a Staff Member
-                    const userLookup = await getDoc(doc(db, 'users', currentUser.uid));
-                    if (userLookup.exists()) {
-                        const lookupData = userLookup.data();
-                        resolvedTenantId = lookupData.tenantId;
-
-                        // Fetch staff details from the tenant's subcollection
-                        const staffDoc = await getDoc(doc(db, 'tenants', resolvedTenantId, 'staff', currentUser.uid));
-                        if (staffDoc.exists()) {
-                            const staffData = staffDoc.data();
-                            setUser({
-                                uid: currentUser.uid,
-                                email: currentUser.email,
-                                tenantId: resolvedTenantId,
-                                isStaff: true,
-                                ...staffData // This includes role, name, etc.
-                            });
-                            setCurrentView('dashboard');
-                        } else {
-                            // Staff record doesn't exist, handle error (e.g., logout)
-                            console.error("Staff member authenticated but no details found in tenant's staff list.");
-                            setUser(null);
-                            setCurrentView('login');
-                        }
-                    } else {
-                        // Else: New user, redirect to setup
-                        setUser({ uid: currentUser.uid, email: currentUser.email });
-                        setCurrentView('setupShop');
-                    }
-                }
-
-                if (resolvedTenantId) {
-                    // Set up real-time listener for tenant's products
-                    productsUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'products'),
-                        (snapshot) => {
-                            const productsData = snapshot.docs.map(doc => ({
-                                id: parseInt(doc.id) || doc.id,
-                                ...doc.data()
-                            })) as Product[];
-                            setProducts(productsData);
-                            console.log(`✅ Products synced from Firestore: ${productsData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing products:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's orders
-                    ordersUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'orders'),
-                        (snapshot) => {
-                            const ordersData = snapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data()
-                            })) as Order[];
-                            setOrders(ordersData);
-                            console.log(`✅ Orders synced from Firestore: ${ordersData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing orders:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's customers
-                    customersUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'customers'),
-                        (snapshot) => {
-                            const customersData = snapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data()
-                            })) as Contact[];
-                            setCustomers(customersData);
-                            console.log(`✅ Customers synced from Firestore: ${customersData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing customers:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's online orders
-                    onlineOrdersUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'onlineOrders'),
-                        (snapshot) => {
-                            const onlineOrdersData = snapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data()
-                            })) as OnlineOrder[];
-                            setOnlineOrders(onlineOrdersData);
-                            console.log(`✅ Online Orders synced from Firestore: ${onlineOrdersData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing online orders:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's settings (single document)
-                    settingsUnsubscribe = onSnapshot(
-                        doc(db, 'tenants', resolvedTenantId, 'settings', 'shopSettings'),
-                        (docSnapshot) => {
-                            if (docSnapshot.exists()) {
-                                const settingsData = docSnapshot.data() as ShopSettings;
-                                setShopSettings(settingsData);
-                                console.log(`✅ Shop Settings synced from Firestore`);
-                            }
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing shop settings:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's purchase orders
-                    purchaseOrdersUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'purchaseOrders'),
-                        (snapshot) => {
-                            const purchaseOrdersData = snapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data()
-                            })) as PurchaseOrder[];
-                            setPurchaseOrders(purchaseOrdersData);
-                            console.log(`✅ Purchase Orders synced from Firestore: ${purchaseOrdersData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing purchase orders:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's stock adjustments
-                    stockAdjustmentsUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'stockAdjustments'),
-                        (snapshot) => {
-                            const adjustmentsData = snapshot.docs.map(doc => ({
-                                id: parseInt(doc.id) || doc.id,
-                                ...doc.data()
-                            })) as unknown as StockAdjustment[];
-                            setStockAdjustments(adjustmentsData);
-                            console.log(`✅ Stock Adjustments synced from Firestore: ${adjustmentsData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing stock adjustments:', error);
-                        }
-                    );
-
-                    // Set up real-time listener for tenant's staff
-                    staffUnsubscribe = onSnapshot(
-                        collection(db, 'tenants', resolvedTenantId, 'staff'),
-                        (snapshot) => {
-                            const staffData = snapshot.docs.map(doc => ({
-                                id: doc.id,
-                                ...doc.data()
-                            })) as Staff[];
-                            setStaff(staffData);
-                            console.log(`✅ Staff synced from Firestore: ${staffData.length} items`);
-                        },
-                        (error) => {
-                            console.error('❌ Error syncing staff:', error);
-                        }
-                    );
-                }
-            } else {
-                setUser(null);
-                setCurrentView('login');
-                setProducts([]);
-                setOrders([]);
-                setCustomers([]);
-                setOnlineOrders([]);
-                setShopSettings({ name: '', phone: '', email: '', address: '', logo: '', timezone: '', currency: '', taxRate: 0 });
-                setPurchaseOrders([]);
-                setStockAdjustments([]);
-                setStaff([]);
-            }
-            setAuthLoading(false);
-        });
-
-        return () => {
-            authUnsubscribe();
-            if (productsUnsubscribe) {
-                productsUnsubscribe();
-            }
-            if (ordersUnsubscribe) {
-                ordersUnsubscribe();
-            }
-            if (customersUnsubscribe) {
-                customersUnsubscribe();
-            }
-            if (onlineOrdersUnsubscribe) {
-                onlineOrdersUnsubscribe();
-            }
-            if (settingsUnsubscribe) {
-                settingsUnsubscribe();
-            }
-            if (purchaseOrdersUnsubscribe) {
-                purchaseOrdersUnsubscribe();
-            }
-            if (stockAdjustmentsUnsubscribe) {
-                stockAdjustmentsUnsubscribe();
-            }
-            if (staffUnsubscribe) {
-                staffUnsubscribe();
-            }
-        };
-    }, []);
-    
     // --- Mock Data Initialization ---
     const [currentView, setCurrentView] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -950,6 +689,138 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     const [roles, setRoles] = useState<Role[]>([
         { id: 'r1', name: 'Admin', nameKh: 'អ្នកគ្រប់គ្រង', isSystem: true, permissions: [{id: 'p1', name: 'Full Access', nameKh: 'សិទ្ធិពេញលេញ', group: 'Settings', enabled: true}] }
     ]);
+
+    // --- 1. Auth Listener (Sets User & Tenant) ---
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            if (currentUser) {
+                let resolvedTenantId: string | null = null;
+
+                // 1st Check: User is a Shop Owner
+                const shopDoc = await getDoc(doc(db, 'tenants', currentUser.uid));
+                if (shopDoc.exists()) {
+                    const shopData = shopDoc.data();
+                    resolvedTenantId = currentUser.uid;
+                    setUser({
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        tenantId: resolvedTenantId,
+                        isStaff: false,
+                        role: 'Super Admin',
+                        ...shopData
+                    });
+                    setCurrentView('dashboard');
+                } else {
+                    // 2nd Check: User is a Staff Member
+                    const userLookup = await getDoc(doc(db, 'users', currentUser.uid));
+                    if (userLookup.exists()) {
+                        const lookupData = userLookup.data();
+                        resolvedTenantId = lookupData.tenantId;
+
+                        const staffDoc = await getDoc(doc(db, 'tenants', resolvedTenantId, 'staff', currentUser.uid));
+                        if (staffDoc.exists()) {
+                            const staffData = staffDoc.data();
+                            setUser({
+                                uid: currentUser.uid,
+                                email: currentUser.email,
+                                tenantId: resolvedTenantId,
+                                isStaff: true,
+                                ...staffData
+                            });
+                            setCurrentView('dashboard');
+                        } else {
+                            console.error("Staff member authenticated but no details found.");
+                            setUser(null);
+                            setCurrentView('login');
+                        }
+                    } else {
+                        setUser({ uid: currentUser.uid, email: currentUser.email });
+                        setCurrentView('setupShop');
+                    }
+                }
+
+                if (resolvedTenantId) {
+                    // CRITICAL: Set the active branch/tenant to trigger data fetching
+                    setCurrentBranch(resolvedTenantId);
+                }
+            } else {
+                setUser(null);
+                setCurrentBranch('');
+                // Clear data on logout
+                setProducts([]);
+                setOrders([]);
+                setCustomers([]);
+                setOnlineOrders([]);
+                setPurchaseOrders([]);
+                setStockAdjustments([]);
+                setStaff([]);
+                setShopSettings({ name: '', phone: '', email: '', address: '', logo: '', timezone: '', currency: '', taxRate: 0 });
+            }
+            setAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // --- 2. Data Fetching Listener (Reacts to currentBranch) ---
+    useEffect(() => {
+        if (!user || !currentBranch || currentBranch === 'b1') return;
+
+        console.log(`🔄 Syncing data for Tenant: ${currentBranch}`);
+        
+        // Clear old data to avoid confusion
+        setProducts([]);
+        setOrders([]);
+        setCustomers([]);
+        setOnlineOrders([]);
+        setPurchaseOrders([]);
+        setStockAdjustments([]);
+        setStaff([]);
+
+        const isAll = currentBranch === 'all';
+
+        const productsQuery = isAll ? collectionGroup(db, 'products') : collection(db, 'tenants', currentBranch, 'products');
+        const productsUnsubscribe = onSnapshot(productsQuery, (snapshot) => {
+             setProducts(snapshot.docs.map(doc => ({ id: parseInt(doc.id) || doc.id, ...doc.data() })) as Product[]);
+        });
+        const ordersQuery = isAll ? collectionGroup(db, 'orders') : collection(db, 'tenants', currentBranch, 'orders');
+        const ordersUnsubscribe = onSnapshot(ordersQuery, (snapshot) => {
+             setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[]);
+        });
+        const customersQuery = isAll ? collectionGroup(db, 'customers') : collection(db, 'tenants', currentBranch, 'customers');
+        const customersUnsubscribe = onSnapshot(customersQuery, (snapshot) => {
+             setCustomers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Contact[]);
+        });
+        const onlineOrdersQuery = isAll ? collectionGroup(db, 'onlineOrders') : collection(db, 'tenants', currentBranch, 'onlineOrders');
+        const onlineOrdersUnsubscribe = onSnapshot(onlineOrdersQuery, (snapshot) => {
+             setOnlineOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as OnlineOrder[]);
+        });
+        const settingsUnsubscribe = onSnapshot(doc(db, 'tenants', currentBranch, 'settings', 'shopSettings'), (docSnapshot) => {
+             if (docSnapshot.exists()) setShopSettings(docSnapshot.data() as ShopSettings);
+        });
+        const purchaseOrdersQuery = isAll ? collectionGroup(db, 'purchaseOrders') : collection(db, 'tenants', currentBranch, 'purchaseOrders');
+        const purchaseOrdersUnsubscribe = onSnapshot(purchaseOrdersQuery, (snapshot) => {
+             setPurchaseOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PurchaseOrder[]);
+        });
+        const stockAdjustmentsQuery = isAll ? collectionGroup(db, 'stockAdjustments') : collection(db, 'tenants', currentBranch, 'stockAdjustments');
+        const stockAdjustmentsUnsubscribe = onSnapshot(stockAdjustmentsQuery, (snapshot) => {
+             setStockAdjustments(snapshot.docs.map(doc => ({ id: parseInt(doc.id) || doc.id, ...doc.data() })) as unknown as StockAdjustment[]);
+        });
+        const staffQuery = isAll ? collectionGroup(db, 'staff') : collection(db, 'tenants', currentBranch, 'staff');
+        const staffUnsubscribe = onSnapshot(staffQuery, (snapshot) => {
+             setStaff(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Staff[]);
+        });
+
+        return () => {
+            productsUnsubscribe();
+            ordersUnsubscribe();
+            customersUnsubscribe();
+            onlineOrdersUnsubscribe();
+            settingsUnsubscribe();
+            purchaseOrdersUnsubscribe();
+            stockAdjustmentsUnsubscribe();
+            staffUnsubscribe();
+        };
+    }, [currentBranch, user]);
 
     const [tenants, setTenants] = useState<Tenant[]>([
         { id: 't1', name: 'Coffee Shop 1', subName: 'Best Coffee', owner: 'Mr. A', email: 'a@coffee.com', phone: '012333444', plan: 'Pro', status: 'Active', joinedDate: '2023-05-20', expiryDate: '2024-05-20', logo: '', mrr: 30 }
@@ -1039,51 +910,48 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         await signOut(auth);
     };
 
-    const addToCart = (product: Product, quantity = 1, unitData?: { unitId: string; selectedUnit: string; multiplier: number; price: number }) => {
+    const addToCart = (product: Product, quantity = 1, unitData?: any) => {
         setCart(prev => {
-            // Create unique key using product ID and unit ID (if UOM selected)
-            const cartKey = unitData ? `${product.id}-${unitData.unitId}` : product.id;
-            const existing = prev.find(p => unitData ? `${p.id}-${p.unitId}` === cartKey : p.id === product.id);
-            
-            const cartItem: CartItem = {
-                ...product,
-                quantity,
-                ...(unitData && {
-                    unitId: unitData.unitId,
-                    selectedUnit: unitData.selectedUnit,
-                    multiplier: unitData.multiplier,
-                    selectedUnitPrice: unitData.price
-                })
-            };
-
-            if (existing) {
-                // If item exists with same unit, increase quantity
-                if (unitData) {
-                    return prev.map(p => 
-                        `${p.id}-${p.unitId}` === cartKey 
-                            ? { ...p, quantity: p.quantity + quantity } 
-                            : p
-                    );
-                } else {
-                    return prev.map(p => p.id === product.id ? { ...p, quantity: p.quantity + quantity } : p);
-                }
+            const variantId = (product as any).variantId;
+    
+            // Find existing item based on product id, variant id, and unit id
+            const existingIndex = prev.findIndex(item => 
+                item.id === product.id && 
+                item.variantId === variantId && 
+                item.unitId === (unitData ? unitData.unitId : undefined)
+            );
+    
+            if (existingIndex > -1) {
+                // Item exists, update quantity
+                const updatedCart = [...prev];
+                updatedCart[existingIndex].quantity += quantity;
+                return updatedCart;
+            } else {
+                // New item, add to cart
+                const cartItem: CartItem = {
+                    ...product,
+                    quantity,
+                    variantId,
+                    ...(unitData && {
+                        unitId: unitData.unitId,
+                        selectedUnit: unitData.selectedUnit,
+                        multiplier: unitData.multiplier,
+                        selectedUnitPrice: unitData.price
+                    })
+                };
+                return [...prev, cartItem];
             }
-            
-            return [...prev, cartItem];
         });
     };
-    const removeFromCart = (id: number, unitId?: string) => {
-        setCart(prev => prev.filter(p => 
-            unitId ? `${p.id}-${p.unitId}` !== `${id}-${unitId}` : p.id !== id
-        ));
+    const removeFromCart = (id: number, variantId?: string, unitId?: string) => {
+        setCart(prev => prev.filter(p => !(p.id === id && p.variantId === variantId && p.unitId === unitId)));
     };
-    const updateQuantity = (id: number, delta: number, unitId?: string) => {
-        setCart(prev => prev.map(p => {
-            if (unitId ? `${p.id}-${p.unitId}` === `${id}-${unitId}` : p.id === id) {
-                return { ...p, quantity: Math.max(1, p.quantity + delta) };
-            }
-            return p;
-        }));
+    const updateQuantity = (id: number, delta: number, variantId?: string, unitId?: string) => {
+        setCart(prev => prev.map(p => 
+            (p.id === id && p.variantId === variantId && p.unitId === unitId)
+                ? { ...p, quantity: Math.max(1, p.quantity + delta) }
+                : p
+        ));
     };
     const clearCart = () => setCart([]);
 
@@ -1101,6 +969,12 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
 
         // Create order record
         const newOrderId = `INV-${Date.now()}`;
+        
+        // Sanitize cart items to remove undefined values (e.g. expiryDate) which Firestore rejects
+        const cleanCart = cart.map(item => 
+            Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined))
+        );
+
         const newOrder = sanitizeData({
             id: newOrderId,
             customer: null,
@@ -1111,7 +985,7 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             tax: taxAmount,
             discount: 0,
             shippingFee: 0,
-            items: [...cart],
+            items: cleanCart,
             method,
             branchId: currentBranch,
             amountPaid: amount,
@@ -1129,22 +1003,44 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
 
             // Step 2: Update product stock in Firestore for each cart item
             for (const cartItem of cart) {
-                const productDocRef = doc(db, 'tenants', user.uid, 'products', cartItem.id.toString());
                 const currentProduct = products.find(p => p.id === cartItem.id);
 
                 if (currentProduct) {
-                    const newStock = Math.max(0, currentProduct.stock - cartItem.quantity);
+                    const productDocRef = doc(db, 'tenants', user.uid, 'products', currentProduct.id.toString());
 
-                    await updateDoc(productDocRef, { stock: newStock });
-                    console.log(`✅ Updated product stock in Firestore: ${cartItem.name} | New stock: ${newStock}`);
-
-                    // Collect low stock alerts
-                    if (newStock <= 5) {
-                        lowStockAlerts.push({
-                            name: currentProduct.name,
-                            newStock: newStock,
-                            sku: currentProduct.sku
+                    // Check if the cart item is a variant
+                    if (cartItem.variantId && currentProduct.variants) {
+                        const updatedVariants = currentProduct.variants.map(v => {
+                            if (v.id === cartItem.variantId) {
+                                const newVariantStock = Math.max(0, (Number(v.stock) || 0) - cartItem.quantity);
+                                if (newVariantStock <= 5) {
+                                    lowStockAlerts.push({
+                                        name: `${currentProduct.name} (${v.name})`,
+                                        newStock: newVariantStock,
+                                        sku: v.sku
+                                    });
+                                }
+                                return { ...v, stock: newVariantStock };
+                            }
+                            return v;
                         });
+
+                        // Update the entire product document with the modified variants array
+                        await updateDoc(productDocRef, { variants: updatedVariants });
+                        console.log(`✅ Updated variant stock in Firestore for: ${currentProduct.name} (${cartItem.name})`);
+                    } else {
+                        // Original logic for non-variant products
+                        const newStock = Math.max(0, currentProduct.stock - cartItem.quantity);
+                        await updateDoc(productDocRef, { stock: newStock });
+                        console.log(`✅ Updated product stock in Firestore: ${cartItem.name} | New stock: ${newStock}`);
+
+                        if (newStock <= 5) {
+                            lowStockAlerts.push({
+                                name: currentProduct.name,
+                                newStock: newStock,
+                                sku: currentProduct.sku
+                            });
+                        }
                     }
                 }
             }
@@ -1188,12 +1084,19 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             status: 'New Lead',
             avatar: lead.name?.substring(0, 2).toUpperCase() || 'U',
             interestedProducts: [],
+            staffId: user?.uid,
+            staffName: user?.name || user?.email || 'Admin',
             ...lead 
         } as Contact;
         setLeads(prev => [newLead, ...prev]);
     };
 
     const addCustomer = async (customer: Partial<Contact>) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីបង្កើតទិន្នន័យថ្មី! (Please select a specific branch to create new data!)");
+            return;
+        }
+
         if (!user) {
             console.error('❌ User not authenticated');
             return;
@@ -1202,7 +1105,9 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         try {
             const customerId = `c-${Date.now()}`;
             
-            const sanitizedCustomer = sanitizeData(customer, {
+            const customerWithTenant = { ...customer, tenantId: currentBranch };
+
+            const sanitizedCustomer = sanitizeData(customerWithTenant, {
                 id: customerId,
                 walletBalance: 0,
                 totalDebt: 0,
@@ -1215,10 +1120,12 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
                 address: '',
                 email: '',
                 phone: '',
-                tags: []
+                tags: [],
+                staffId: user.uid,
+                staffName: user.name || user.email || 'Admin'
             });
 
-            await setDoc(doc(db, 'tenants', user.uid, 'customers', customerId), sanitizedCustomer);
+            await setDoc(doc(db, 'tenants', currentBranch, 'customers', customerId), sanitizedCustomer);
             console.log(`✅ Customer added successfully: ${customerId}`);
             
             return { id: customerId, ...sanitizedCustomer } as Contact;
@@ -1252,14 +1159,20 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const deleteCustomer = async (id: string) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីលុបទិន្នន័យ! (Please select a specific branch to delete data!)");
+            return;
+        }
+
         if (!user) {
             console.error('❌ User not authenticated');
             return;
         }
 
         try {
-            await deleteDoc(doc(db, 'tenants', user.uid, 'customers', id));
+            await deleteDoc(doc(db, 'tenants', currentBranch, 'customers', id));
             console.log(`✅ Customer deleted successfully: ${id}`);
+            setCustomers(prev => prev.filter(c => c.id !== id));
         } catch (error) {
             console.error('❌ Error deleting customer:', error);
             throw error;
@@ -1274,6 +1187,11 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const createOnlineOrder = async (customer: CustomerInfo, items: CartItem[], shippingFee: number, paymentMethod: string, carrier?: string, source?: string, transactionId?: string, discount?: number, deliveryDate?: string, zone?: string, bankSlipImage?: string | null) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីបង្កើតទិន្នន័យថ្មី! (Please select a specific branch to create new data!)");
+            return;
+        }
+
         if (!user) {
             console.error('❌ Cannot create online order: User not authenticated');
             return;
@@ -1283,6 +1201,9 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         const appliedDiscount = discount || 0;
         const total = subtotal - appliedDiscount + shippingFee;
         const orderId = `QB-${Date.now()}`;
+
+        // Sanitize items array to remove undefined properties which Firestore rejects
+        const cleanItems = items.map(item => Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined)));
         
         const newOrder = sanitizeData({
             id: orderId,
@@ -1295,7 +1216,7 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             tax: 0,
             discount: appliedDiscount,
             shippingFee,
-            items,
+            items: cleanItems,
             paymentMethod,
             shippingCarrier: carrier, 
             shippingDetails: carrier ? { courier: carrier, trackingNumber: '', fee: shippingFee, zone } : undefined, 
@@ -1305,8 +1226,11 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             deliveryDate,
             bankSlipImage,
             branchId: currentBranch,
+            tenantId: currentBranch,
             amountPaid: total,
-            debtAmount: 0
+            debtAmount: 0,
+            staffId: user.uid,
+            staffName: user.name || user.email || 'Unknown'
         }, {
             status: 'New',
             paymentStatus: paymentMethod === 'COD' ? 'COD' : 'Pending',
@@ -1314,7 +1238,7 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         }) as OnlineOrder;
 
         try {
-            await setDoc(doc(db, 'tenants', user.uid, 'onlineOrders', orderId), newOrder);
+            await setDoc(doc(db, 'tenants', currentBranch, 'onlineOrders', orderId), newOrder);
             console.log(`✅ Online order created successfully: ${orderId}`);
             setIsCreateOrderModalOpen(false);
         } catch (error) {
@@ -1385,10 +1309,23 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         }
     };
 
-    const deleteOnlineOrder = (id: string) => {
-        setOnlineOrders(prev => prev.filter(o => o.id !== id));
-        if (selectedOnlineOrder?.id === id) {
-            setSelectedOnlineOrder(null);
+    const deleteOnlineOrder = async (id: string) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីលុបទិន្នន័យ! (Please select a specific branch to delete data!)");
+            return;
+        }
+
+        if (!user) return;
+
+        try {
+            await deleteDoc(doc(db, 'tenants', currentBranch, 'onlineOrders', id));
+            console.log(`✅ Online order deleted: ${id}`);
+            setOnlineOrders(prev => prev.filter(o => o.id !== id));
+            if (selectedOnlineOrder?.id === id) {
+                setSelectedOnlineOrder(null);
+            }
+        } catch (error) {
+            console.error('❌ Error deleting online order:', error);
         }
     };
 
@@ -1456,6 +1393,11 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const addProduct = async (product: Partial<Product>) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីបង្កើតទិន្នន័យថ្មី! (Please select a specific branch to create new data!)");
+            return;
+        }
+
         if (!user) {
             console.error('❌ Cannot add product: User not authenticated');
             return;
@@ -1472,12 +1414,13 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             status: 'In Stock',
             baseUnit: 'unit',
             units: [],
-            ...product
+            ...product,
+            tenantId: currentBranch
         });
 
         try {
             await setDoc(
-                doc(db, 'tenants', user.uid, 'products', newProdId),
+                doc(db, 'tenants', currentBranch, 'products', newProdId),
                 newProd
             );
             console.log(`✅ Product added to Firestore: ${newProd.name}`);
@@ -1511,14 +1454,20 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const deleteProduct = async (id: number | string) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីលុបទិន្នន័យ! (Please select a specific branch to delete data!)");
+            return;
+        }
+
         if (!user) {
             console.error('❌ Cannot delete product: User not authenticated');
             return;
         }
 
         try {
-            await deleteDoc(doc(db, 'tenants', user.uid, 'products', id.toString()));
+            await deleteDoc(doc(db, 'tenants', currentBranch, 'products', id.toString()));
             console.log(`✅ Product deleted from Firestore: ID ${id}`);
+            setProducts(prev => prev.filter(p => p.id !== id));
         } catch (error) {
             console.error('❌ Error deleting product from Firestore:', error);
         }
@@ -1836,6 +1785,11 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const addStaff = async (staffData: Partial<Staff>) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីបង្កើតទិន្នន័យថ្មី! (Please select a specific branch to create new data!)");
+            return;
+        }
+
         // ដូរពី currentUser ទៅ user ឲ្យត្រូវនឹង State របស់ bro
         if (!user || !staffData.email || !staffData.password) {
             alert("សូមបំពេញ Email និង Password ឲ្យបានត្រឹមត្រូវ!");
@@ -1856,16 +1810,17 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             await delApp(secondaryApp);
 
             // 3. រក្សាទុកទិន្នន័យចូល Database (Firestore)
-            const staffRef = doc(db, 'tenants', user.uid, 'staff', newUid);
+            const staffRef = doc(db, 'tenants', currentBranch, 'staff', newUid);
             await setDoc(staffRef, {
                 ...staffData,
                 id: newUid,
                 status: 'Active',
-                createdAt: new Date()
+                createdAt: new Date(),
+                tenantId: currentBranch
             });
 
             // Add a global lookup document for the staff member
-            await setDoc(doc(db, 'users', newUid), { tenantId: user.uid, role: staffData.role, isStaff: true });
+            await setDoc(doc(db, 'users', newUid), { tenantId: currentBranch, role: staffData.role, isStaff: true });
 
             alert("បង្កើតគណនីបុគ្គលិកបានជោគជ័យ! (Success)");
 
@@ -1886,10 +1841,16 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     };
 
     const deleteStaff = async (id: string) => {
+        if (currentBranch === 'all') {
+            alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីលុបទិន្នន័យ! (Please select a specific branch to delete data!)");
+            return;
+        }
+
         if (!user) return;
         try {
-            await deleteDoc(doc(db, 'tenants', user.uid, 'staff', id));
+            await deleteDoc(doc(db, 'tenants', currentBranch, 'staff', id));
             console.log(`✅ Staff deleted: ${id}`);
+            setStaff(prev => prev.filter(s => s.id !== id));
         } catch (error) {
             console.error('❌ Error deleting staff:', error);
         }

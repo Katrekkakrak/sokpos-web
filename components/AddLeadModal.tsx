@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useData, Contact, InterestedProduct } from '../context/DataContext';
 import * as LucideIcons from 'lucide-react'; // Import all icons for dynamic rendering
 import { 
@@ -290,31 +290,88 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSuccess 
 
     const activeSourceConfig = getSourceFieldConfig(source);
 
+    // --- Flatten Products for Dropdown (Base + Variants + UOMs) ---
+    const flattenedProducts = useMemo(() => {
+        const options: { value: string; label: string; stock: number }[] = [];
+        products.forEach(p => {
+            if (p.variants && p.variants.length > 0) {
+                // Group variants by name to hide expiry batches
+                const groups: Record<string, { stock: number }> = {};
+                p.variants.forEach((v: any) => {
+                    if (!groups[v.name]) {
+                        groups[v.name] = { stock: 0 };
+                    }
+                    groups[v.name].stock += (v.stock || 0);
+                });
+
+                Object.entries(groups).forEach(([vName, vData]) => {
+                    options.push({
+                        value: `${p.id}::VAR::${vName}`,
+                        label: `${p.name} (${vName})`,
+                        stock: vData.stock
+                    });
+                });
+            } else if (p.units && p.units.length > 1) {
+                // Include UOMs if multiple units exist
+                p.units.forEach((u: any) => {
+                    options.push({
+                        value: `${p.id}::UNIT::${u.name}`,
+                        label: `${p.name} (${u.name})`,
+                        stock: Math.floor((p.stock || 0) / (u.multiplier || 1))
+                    });
+                });
+            } else {
+                // Base Product
+                options.push({
+                    value: p.id.toString(),
+                    label: p.name,
+                    stock: p.stock
+                });
+            }
+        });
+        return options;
+    }, [products]);
+
     // --- Product Interest Handlers ---
     const handleAddInterest = () => {
         if (!interestProdId) return;
-        const prod = products.find(p => p.id.toString() === interestProdId);
-        if (prod) {
-            const existingIdx = interestedProducts.findIndex(p => p.id === prod.id);
-            if (existingIdx >= 0) {
-                const updated = [...interestedProducts];
-                updated[existingIdx].qty += interestQty;
-                setInterestedProducts(updated);
-            } else {
-                setInterestedProducts([...interestedProducts, {
-                    id: prod.id,
-                    name: prod.name,
-                    qty: interestQty,
-                    price: prod.price
-                }]);
+        
+        let selectedItem: InterestedProduct | null = null;
+
+        if (interestProdId.includes('::VAR::')) {
+            const [pid, , vName] = interestProdId.split('::');
+            const prod = products.find(p => p.id.toString() === pid);
+            if (prod && prod.variants) {
+                const variant = prod.variants.find((v: any) => v.name === vName);
+                if (variant) {
+                    selectedItem = { id: prod.id, name: `${prod.name} (${vName})`, qty: interestQty, price: variant.price };
+                }
             }
-            setInterestProdId('');
-            setInterestQty(1);
+        } else if (interestProdId.includes('::UNIT::')) {
+            const [pid, , uName] = interestProdId.split('::');
+            const prod = products.find(p => p.id.toString() === pid);
+            if (prod && prod.units) {
+                const unit = prod.units.find((u: any) => u.name === uName);
+                if (unit) {
+                    selectedItem = { id: prod.id, name: `${prod.name} (${uName})`, qty: interestQty, price: unit.price };
+                }
+            }
+        } else {
+            const prod = products.find(p => p.id.toString() === interestProdId);
+            if (prod) {
+                selectedItem = { id: prod.id, name: prod.name, qty: interestQty, price: prod.price };
+            }
         }
+
+        if (selectedItem) {
+            setInterestedProducts([...interestedProducts, selectedItem]);
+        }
+        setInterestProdId('');
+        setInterestQty(1);
     };
 
-    const handleRemoveInterest = (id: number) => {
-        setInterestedProducts(interestedProducts.filter(p => p.id !== id));
+    const handleRemoveInterest = (index: number) => {
+        setInterestedProducts(interestedProducts.filter((_, i) => i !== index));
     };
 
     // --- Map Logic ---
@@ -777,9 +834,9 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSuccess 
                                             className="block w-full rounded-lg border-slate-300 dark:border-slate-600 text-sm py-2 px-3 dark:bg-slate-800 dark:text-white focus:ring-primary focus:border-primary"
                                         >
                                             <option value="">-- Select Product --</option>
-                                            {products.map(p => (
-                                                <option key={p.id} value={p.id}>
-                                                    {p.name} - [Stock: {p.stock}]
+                                            {flattenedProducts.map((p) => (
+                                                <option key={p.value} value={p.value}>
+                                                    {p.label} - [Stock: {p.stock}]
                                                 </option>
                                             ))}
                                         </select>
@@ -818,7 +875,7 @@ const AddLeadModal: React.FC<AddLeadModalProps> = ({ isOpen, onClose, onSuccess 
                                                 </div>
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => handleRemoveInterest(item.id)}
+                                                    onClick={() => handleRemoveInterest(idx)}
                                                     className="text-slate-400 hover:text-red-500 p-1 transition-colors"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />

@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
+import { 
+    RefreshCw, Search, Printer, Bluetooth, Receipt, Wifi, MoreVertical, 
+    PlusCircle, Settings, Banknote, ChevronDown, ScanBarcode, HelpCircle 
+} from 'lucide-react';
 
 const HardwareSetup: React.FC = () => {
     const { setCurrentView } = useData();
@@ -55,9 +59,7 @@ const HardwareSetup: React.FC = () => {
                             disabled={isScanning}
                             className="group inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-background-dark transition-all disabled:opacity-75"
                         >
-                            <span className={`material-symbols-outlined text-[20px] ${isScanning ? 'animate-spin' : ''}`}>
-                                {isScanning ? 'refresh' : 'search'}
-                            </span>
+                            {isScanning ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
                             <span className="flex flex-col items-start leading-tight">
                                 <span>{isScanning ? 'Scanning...' : 'Scan for Printers'}</span>
                                 <span className="text-[10px] font-normal opacity-90 font-khmer">ស្វែងរកម៉ាស៊ីនបោះពុម្ព</span>
@@ -71,7 +73,7 @@ const HardwareSetup: React.FC = () => {
                         <div className="lg:col-span-2 flex flex-col gap-6">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-slate-400">print</span>
+                                    <Printer className="w-5 h-5 text-slate-400" />
                                     Connected Printers
                                 </h2>
                                 <span className="bg-primary/10 text-primary text-xs font-semibold px-2.5 py-0.5 rounded-full dark:bg-primary/20">{printers.length} Devices</span>
@@ -83,9 +85,7 @@ const HardwareSetup: React.FC = () => {
                                     <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between">
                                         <div className="flex items-start gap-4">
                                             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                                                <span className="material-symbols-outlined text-[28px]">
-                                                    {printer.type === 'Bluetooth' ? 'bluetooth' : 'receipt_long'}
-                                                </span>
+                                                {printer.type === 'Bluetooth' ? <Bluetooth size={28} /> : <Receipt size={28} />}
                                             </div>
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2">
@@ -100,9 +100,7 @@ const HardwareSetup: React.FC = () => {
                                                 </div>
                                                 <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
                                                     <span className="flex items-center gap-1">
-                                                        <span className="material-symbols-outlined text-[16px]">
-                                                            {printer.type === 'Bluetooth' ? 'bluetooth_connected' : 'wifi'}
-                                                        </span>
+                                                        {printer.type === 'Bluetooth' ? <Bluetooth size={16} /> : <Wifi size={16} />}
                                                         {printer.ip}
                                                     </span>
                                                     <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
@@ -115,13 +113,11 @@ const HardwareSetup: React.FC = () => {
                                                 onClick={() => toggleConnection(printer.id)}
                                                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
                                             >
-                                                <span className="material-symbols-outlined text-[18px]">
-                                                    {printer.status === 'Connected' ? 'print' : 'refresh'}
-                                                </span>
+                                                {printer.status === 'Connected' ? <Printer size={18} /> : <RefreshCw size={18} />}
                                                 {printer.status === 'Connected' ? 'Test Print' : 'Reconnect'}
                                             </button>
                                             <button className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors">
-                                                <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                                                <MoreVertical size={20} />
                                             </button>
                                         </div>
                                     </div>
@@ -130,7 +126,7 @@ const HardwareSetup: React.FC = () => {
 
                             {/* Add New Manual Card */}
                             <button className="group flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 py-4 text-sm font-medium text-slate-600 hover:border-primary hover:bg-primary/5 hover:text-primary dark:border-slate-700 dark:bg-slate-800/30 dark:text-slate-400 dark:hover:border-primary dark:hover:bg-primary/10 transition-all">
-                                <span className="material-symbols-outlined">add_circle</span>
+                                <PlusCircle className="w-5 h-5" />
                                 Add Printer Manually
                             </button>
                         </div>
@@ -139,7 +135,7 @@ const HardwareSetup: React.FC = () => {
                         <div className="lg:col-span-1 flex flex-col gap-6">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-slate-400">settings</span>
+                                    <Settings className="w-5 h-5 text-slate-400" />
                                     Peripherals
                                 </h2>
                             </div>
@@ -149,7 +145,7 @@ const HardwareSetup: React.FC = () => {
                                 <div className="bg-slate-50 p-4 border-b border-slate-100 dark:bg-slate-800/50 dark:border-slate-700">
                                     <div className="flex items-center gap-3">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-primary dark:bg-blue-900/30 dark:text-blue-400">
-                                            <span className="material-symbols-outlined text-[18px]">point_of_sale</span>
+                                            <Banknote size={18} />
                                         </div>
                                         <h3 className="font-semibold text-slate-900 dark:text-white">Cash Drawer</h3>
                                     </div>
@@ -175,7 +171,7 @@ const HardwareSetup: React.FC = () => {
                                                 <option>Manual Open Only</option>
                                             </select>
                                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-                                                <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                                                <ChevronDown size={20} />
                                             </div>
                                         </div>
                                     </div>
@@ -190,7 +186,7 @@ const HardwareSetup: React.FC = () => {
                                 <div className="p-4 flex flex-col gap-4">
                                     <div className="flex items-center gap-3">
                                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-                                            <span className="material-symbols-outlined text-[18px]">barcode_reader</span>
+                                            <ScanBarcode size={18} />
                                         </div>
                                         <div className="flex flex-col">
                                             <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Barcode Scanner</h3>
@@ -215,7 +211,7 @@ const HardwareSetup: React.FC = () => {
                         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
                                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-sm dark:bg-slate-900">
-                                    <span className="material-symbols-outlined">help</span>
+                                    <HelpCircle className="w-6 h-6" />
                                 </span>
                                 <div>
                                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">Need help connecting?</h4>

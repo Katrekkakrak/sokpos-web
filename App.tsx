@@ -9,6 +9,7 @@ import OrderHistory from './src/pages/OrderHistory';
 import SetupShop from './src/pages/SetupShop';
 import MainLayout from './components/MainLayout';
 import Dashboard from './components/Dashboard';
+import StaffDashboard from './components/StaffDashboard';
 import PosTerminal from './components/PosTerminal';
 import PaymentModal from './components/PaymentModal';
 import OnlineOrdersBoard from './components/OnlineOrdersBoard';
@@ -117,7 +118,11 @@ const POSAppContent = () => {
     <>
         <MainLayout>
             {/* Core Views */}
-            {currentView === 'dashboard' && <Dashboard />}
+            {currentView === 'dashboard' && (
+              ['online_sales', 'online_sales_lead'].includes(user?.role || '') 
+                ? <StaffDashboard /> 
+                : <Dashboard />
+            )}
             {currentView === 'pos' && <PosTerminal />}
             {currentView === 'online-orders' && <OnlineOrdersBoard />}
             {currentView === 'order-details' && <OrderDetail />}

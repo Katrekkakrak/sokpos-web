@@ -15,6 +15,13 @@ const ProductForm: React.FC = () => {
     const [description, setDescription] = useState('');
     const [stock, setStock] = useState('');
     const [variants, setVariants] = useState<ProductVariant[]>([]);
+    const [newVariant, setNewVariant] = useState<Partial<ProductVariant> & { expiryDate?: string }>({
+        name: '',
+        price: 0,
+        stock: 0,
+        sku: '',
+        expiryDate: ''
+    });
     
     // Form State - Dynamic UOM
     const [baseUnit, setBaseUnit] = useState('');
@@ -95,6 +102,29 @@ const ProductForm: React.FC = () => {
         } else {
             addProduct(productData);
         }
+    };
+
+    const handleAddVariant = () => {
+        if (!newVariant.name || newVariant.price === undefined) {
+            alert('សូមបំពេញឈ្មោះ និងតម្លៃសម្រាប់ជម្រើស (Please fill variant name and price)');
+            return;
+        }
+
+        const variantToAdd: any = {
+            id: `v-${Date.now()}`,
+            name: newVariant.name,
+            price: parseFloat(newVariant.price.toString()) || 0,
+            stock: parseFloat(newVariant.stock?.toString() || '0') || 0,
+            sku: newVariant.sku || '',
+            expiryDate: newVariant.expiryDate || ''
+        };
+
+        setVariants([...variants, variantToAdd]);
+        setNewVariant({ name: '', price: 0, stock: 0, sku: '', expiryDate: '' });
+    };
+
+    const handleRemoveVariant = (index: number) => {
+        setVariants(variants.filter((_, i) => i !== index));
     };
 
     const handleAddUnit = () => {
@@ -261,6 +291,72 @@ const ProductForm: React.FC = () => {
                             </button>
                         </div>
                         
+                        {/* Add New Variant Form */}
+                        <div className="mb-6 p-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                            <h4 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <span className="material-icons text-lg">add_circle</span>
+                                បន្ថែមជម្រើសថ្មី (Add Variant)
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ឈ្មោះជម្រើស <span className="text-red-500">*</span></label>
+                                    <input 
+                                        value={newVariant.name || ''} 
+                                        onChange={e => setNewVariant({...newVariant, name: e.target.value})}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                        type="text" 
+                                        placeholder="ឧ. Size L, Red"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">តម្លៃលក់ ($) <span className="text-red-500">*</span></label>
+                                    <input 
+                                        value={newVariant.price || 0} 
+                                        onChange={e => setNewVariant({...newVariant, price: parseFloat(e.target.value) || 0})}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                        type="number" 
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ស្តុក</label>
+                                    <input 
+                                        value={newVariant.stock || 0} 
+                                        onChange={e => setNewVariant({...newVariant, stock: parseFloat(e.target.value) || 0})}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                        type="number" 
+                                        placeholder="0"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">SKU</label>
+                                    <input 
+                                        value={newVariant.sku || ''} 
+                                        onChange={e => setNewVariant({...newVariant, sku: e.target.value})}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                        type="text" 
+                                        placeholder="SKU-VAR-001"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ថ្ងៃផុតកំណត់ (Expiry Date)</label>
+                                    <input 
+                                        value={newVariant.expiryDate || ''} 
+                                        onChange={e => setNewVariant({...newVariant, expiryDate: e.target.value})}
+                                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                        type="date"
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleAddVariant}
+                                className="mt-4 w-full md:w-auto px-6 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center justify-center gap-2"
+                            >
+                                <span className="material-icons">add</span>
+                                បន្ថែមជម្រើស
+                            </button>
+                        </div>
+
                         {variants.length > 0 ? (
                             <div className="overflow-x-auto border border-slate-200 dark:border-slate-600 rounded-lg">
                                 <table className="w-full text-sm text-left">
@@ -270,15 +366,23 @@ const ProductForm: React.FC = () => {
                                             <th className="px-4 py-3 font-khmer">តម្លៃលក់ ($)</th>
                                             <th className="px-4 py-3 font-khmer">ស្តុក</th>
                                             <th className="px-4 py-3">SKU</th>
+                                            <th className="px-4 py-3 font-khmer">ថ្ងៃផុតកំណត់</th>
+                                            <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
-                                        {variants.map(v => (
+                                        {variants.map((v: any, index) => (
                                             <tr key={v.id} className="dark:text-white">
                                                 <td className="px-4 py-3 font-medium">{v.name}</td>
                                                 <td className="px-4 py-3">${v.price}</td>
                                                 <td className="px-4 py-3">{v.stock}</td>
                                                 <td className="px-4 py-3">{v.sku}</td>
+                                                <td className="px-4 py-3">{v.expiryDate || '-'}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button onClick={() => handleRemoveVariant(index)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-lg transition-colors">
+                                                        <span className="material-icons text-lg">delete</span>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

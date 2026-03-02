@@ -6,6 +6,8 @@ import { sendLowStockAlert } from '../utils/telegramAlert';
 const PosTerminal: React.FC = () => {
     const [showUnitModal, setShowUnitModal] = useState(false);
     const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [showVariantModal, setShowVariantModal] = useState(false);
+    const [selectedVariantProduct, setSelectedVariantProduct] = useState<any>(null);
     const [selectedProductForUnit, setSelectedProductForUnit] = useState<any>(null);
     const barcodeInputRef = useRef<HTMLInputElement>(null);
     const barcodeBufferRef = useRef<string>('');
@@ -21,11 +23,18 @@ const PosTerminal: React.FC = () => {
         setCurrentView,
         posCustomer,
         setPosCustomer,
-        customers,
-        branches,
-        currentBranch,
-        setCurrentBranch
+        customers
     } = useData();
+
+    // Helper function to determine if a product is out of stock, considering variants.
+    const isProductOutOfStock = (product: any): boolean => {
+        // Rule 2: It has variants, AND every variant's stock is <= 0.
+        if (product.variants && product.variants.length > 0) {
+            return product.variants.every((v: any) => (v.stock || 0) <= 0);
+        }
+        // Rule 1: It has no variants AND (product.stock || 0) <= 0.
+        return (product.stock || 0) <= 0;
+    };
 
     // Filter products based on search and category
     const filteredProducts = products.filter(product => {
@@ -37,11 +46,18 @@ const PosTerminal: React.FC = () => {
     });
 
     const handleProductClick = (product: any) => {
-        // Prevent adding if out of stock
-        if (product.status === 'Out of Stock' || (product.stock || 0) <= 0) {
+        // Prevent adding if out of stock using the new variant-aware logic
+        if (isProductOutOfStock(product)) {
             return;
         }
         
+        // If product has variants, show variant selection modal
+        if (product.variants && product.variants.length > 0) {
+            setSelectedVariantProduct(product);
+            setShowVariantModal(true);
+            return;
+        }
+
         // If product has multiple units, show unit selection modal
         if (product.units && product.units.length > 1) {
             setSelectedProductForUnit(product);
@@ -49,7 +65,7 @@ const PosTerminal: React.FC = () => {
         } else if (product.units && product.units.length === 1) {
             // Single unit - add directly with unit data
             const unit = product.units[0];
-            addToCart(product, 1, {
+            addToCart({ ...product, price: unit.price }, 1, {
                 unitId: unit.unitId,
                 selectedUnit: unit.name,
                 multiplier: unit.multiplier,
@@ -61,9 +77,31 @@ const PosTerminal: React.FC = () => {
         }
     };
 
+    const handleVariantSelect = (variant: any) => {
+        if (selectedVariantProduct) {
+            // Create a new product object for the cart that represents the selected variant
+            const cartItem = {
+                ...selectedVariantProduct,
+                variantId: variant.id, // Add variant ID
+                name: `${selectedVariantProduct.name} (${variant.name})`,
+                nameKh: `${selectedVariantProduct.nameKh || selectedVariantProduct.name} (${variant.name})`,
+                price: variant.price, // CRITICAL: Override price
+                sku: variant.sku, // Override SKU
+                stock: variant.stock, // Use variant's stock
+                // Reset units/variants on the cart item to avoid confusion
+                units: [],
+                variants: [],
+            };
+            addToCart(cartItem);
+        }
+        setShowVariantModal(false);
+        setSelectedVariantProduct(null);
+    };
+
     const handleUnitSelected = (unit: any) => {
         if (selectedProductForUnit) {
-            addToCart(selectedProductForUnit, 1, {
+            // By spreading the product and overriding the price, we ensure the cart total is calculated correctly.
+            addToCart({ ...selectedProductForUnit, price: unit.price }, 1, {
                 unitId: unit.unitId,
                 selectedUnit: unit.name,
                 multiplier: unit.multiplier,
@@ -104,8 +142,8 @@ const PosTerminal: React.FC = () => {
 
         // Action Logic:
         if (matchedProduct) {
-            // Check if out of stock
-            if (matchedProduct.status === 'Out of Stock' || (matchedProduct.stock || 0) <= 0) {
+            // Check if out of stock using the new variant-aware logic
+            if (isProductOutOfStock(matchedProduct)) {
                 console.warn(`❌ Barcode matched but product is out of stock: ${scannedBarcode}`);
                 alert(`សូមស្វាគមន៍! ក្នុងទំនិញ: ${matchedProduct.name}`);
                 return;
@@ -114,7 +152,7 @@ const PosTerminal: React.FC = () => {
             // Case 1: Unit-specific barcode matched
             if (matchedUnit) {
                 console.log(`✅ Unit barcode matched: ${matchedProduct.name} (${matchedUnit.name})`);
-                addToCart(matchedProduct, 1, {
+                addToCart({ ...matchedProduct, price: matchedUnit.price }, 1, {
                     unitId: matchedUnit.unitId,
                     selectedUnit: matchedUnit.name,
                     multiplier: matchedUnit.multiplier,
@@ -131,7 +169,7 @@ const PosTerminal: React.FC = () => {
             else if (matchedProduct.units && matchedProduct.units.length === 1) {
                 console.log(`✅ Product barcode matched (single unit): ${matchedProduct.name}`);
                 const unit = matchedProduct.units[0];
-                addToCart(matchedProduct, 1, {
+                addToCart({ ...matchedProduct, price: unit.price }, 1, {
                     unitId: unit.unitId,
                     selectedUnit: unit.name,
                     multiplier: unit.multiplier,
@@ -229,16 +267,6 @@ const PosTerminal: React.FC = () => {
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                         Online
                     </span>
-                    <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
-                    <select 
-                        value={currentBranch}
-                        onChange={(e) => setCurrentBranch(e.target.value)}
-                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm font-medium text-gray-900 dark:text-white hover:border-primary transition-colors cursor-pointer dark:hover:border-primary"
-                    >
-                        {branches.map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                        ))}
-                    </select>
                 </div>
                 <div className="flex items-center gap-4">
                     <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors relative">
@@ -250,11 +278,17 @@ const PosTerminal: React.FC = () => {
                             <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role}</p>
                         </div>
-                        <img 
-                            className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-600" 
-                            src={user?.avatar}
-                            alt="Cashier" 
-                        />
+                        {user?.avatar ? (
+                            <img 
+                                className="w-9 h-9 rounded-full object-cover border border-gray-200 dark:border-gray-600" 
+                                src={user.avatar}
+                                alt="Cashier" 
+                            />
+                        ) : (
+                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold border border-primary/20">
+                                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'U'}
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
@@ -310,15 +344,19 @@ const PosTerminal: React.FC = () => {
                         ) : (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                 {filteredProducts.map(product => {
-                                    const isOutOfStock = product.status === 'Out of Stock' || (product.stock || 0) <= 0;
+                                    const isOutOfStock = isProductOutOfStock(product);
                                     return (
                                         <div 
                                             key={product.id}
                                             onClick={() => handleProductClick(product)}
                                             className={`bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group overflow-hidden border border-transparent hover:border-primary/30 relative ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         >
-                                            <div className="aspect-square bg-gray-100 relative">
-                                                <img className="w-full h-full object-cover" src={product.image} alt={product.name} />
+                                            <div className="aspect-square bg-gray-100 relative flex items-center justify-center">
+                                                {product.image ? (
+                                                    <img className="w-full h-full object-cover" src={product.image} alt={product.name} />
+                                                ) : (
+                                                    <span className="material-icons text-gray-300 dark:text-gray-600 text-4xl">image_not_supported</span>
+                                                )}
                                                 <div className="absolute bottom-2 right-2 bg-white/90 dark:bg-black/80 px-2 py-1 rounded text-xs font-bold text-gray-800 dark:text-white backdrop-blur-sm shadow-sm">
                                                     ${product.price.toFixed(2)}
                                                 </div>
@@ -419,18 +457,24 @@ const PosTerminal: React.FC = () => {
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 animate-fade-in-up">
                                 <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                                    <span className="material-icons text-4xl text-gray-300 dark:text-gray-600">shopping_cart_checkout</span>
+                                            <span className="material-icons text-4xl text-gray-300 dark:text-gray-600">shopping_cart</span>
                                 </div>
                                 <p className="text-sm font-medium">Cart is empty</p>
                                 <p className="text-xs mt-1">Select products to add</p>
                             </div>
                         ) : (
-                            cart.map(item => {
+                                    cart.map((item: any) => {
                                 const displayPrice = item.selectedUnitPrice || item.price;
                                 const unitDisplay = item.selectedUnit ? ` (${item.selectedUnit})` : '';
                                 return (
                                 <div key={`${item.id}-${item.unitId || 'base'}`} className="flex gap-3 group animate-in slide-in-from-right-4 duration-300">
-                                    <img className="w-14 h-14 rounded-lg object-cover border border-gray-100 dark:border-gray-700" src={item.image} alt={item.name} />
+                                    {item.image ? (
+                                        <img className="w-14 h-14 rounded-lg object-cover border border-gray-100 dark:border-gray-700" src={item.image} alt={item.name} />
+                                    ) : (
+                                        <div className="w-14 h-14 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                                            <span className="material-icons text-gray-400">image</span>
+                                        </div>
+                                    )}
                                     <div className="flex-1 flex flex-col justify-between">
                                         <div className="flex justify-between items-start">
                                             <div>
@@ -442,14 +486,14 @@ const PosTerminal: React.FC = () => {
                                         <div className="flex items-center justify-between mt-1">
                                             <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg h-7">
                                                 <button 
-                                                    onClick={() => updateQuantity(item.id, -1, item.unitId)} 
+                                                    onClick={() => updateQuantity(item.id, -1, item.variantId, item.unitId)} 
                                                     className="w-7 h-full flex items-center justify-center text-gray-500 hover:text-primary hover:bg-white dark:hover:bg-gray-700 rounded-l-lg transition-all"
                                                 >
                                                     -
                                                 </button>
                                                 <span className="w-8 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">{item.quantity}</span>
                                                 <button 
-                                                    onClick={() => updateQuantity(item.id, 1, item.unitId)} 
+                                                    onClick={() => updateQuantity(item.id, 1, item.variantId, item.unitId)} 
                                                     className="w-7 h-full flex items-center justify-center text-gray-500 hover:text-primary hover:bg-white dark:hover:bg-gray-700 rounded-r-lg transition-all"
                                                     disabled={(item.stock || 0) <= item.quantity}
                                                 >
@@ -457,7 +501,7 @@ const PosTerminal: React.FC = () => {
                                                 </button>
                                             </div>
                                             <button 
-                                                onClick={() => removeFromCart(item.id, item.unitId)}
+                                                onClick={() => removeFromCart(item.id, item.variantId, item.unitId)}
                                                 className="text-gray-400 hover:text-red-500 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
                                                 <span className="material-icons text-sm">close</span>
@@ -574,6 +618,64 @@ const PosTerminal: React.FC = () => {
                         >
                             Cancel
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Variant Selection Modal */}
+            {showVariantModal && selectedVariantProduct && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-2xl p-6 w-96 max-w-[90vw] animate-in scale-in duration-200">
+                        <div className="flex items-start justify-between mb-4">
+                            <div>
+                                <h3 className="font-bold text-lg text-gray-900 dark:text-white font-khmer">Select Variant</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{selectedVariantProduct.nameKh}</p>
+                            </div>
+                            <button 
+                                onClick={() => setShowVariantModal(false)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <span className="material-icons">close</span>
+                            </button>
+                        </div>
+
+                        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+                            {selectedVariantProduct.variants?.map((variant: any) => {
+                                const isVariantOutOfStock = (variant.stock || 0) <= 0;
+                                const today = new Date();
+                                const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+                                const isExpired = variant.expiryDate ? variant.expiryDate < todayStr : false;
+                                return (
+                                    <button
+                                        key={variant.id}
+                                        onClick={() => !isVariantOutOfStock && !isExpired && handleVariantSelect(variant)}
+                                        disabled={isVariantOutOfStock || isExpired}
+                                        className={`w-full p-4 text-left border rounded-lg transition-all group ${
+                                            isVariantOutOfStock || isExpired
+                                                ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-50 cursor-not-allowed'
+                                                : 'border-gray-200 dark:border-gray-700 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/10'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <h4 className="font-semibold text-gray-900 dark:text-white">{variant.name}</h4>
+                                                <p className={`text-xs mt-1 ${isVariantOutOfStock ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                    Stock: {variant.stock || 0}
+                                                </p>
+                                                {variant.expiryDate && (
+                                                    <div className={`text-xs mt-1 ${isExpired ? 'text-red-500 font-bold' : 'text-orange-500'}`}>
+                                                        {isExpired ? '⚠️ ផុតកំណត់ (Expired): ' : 'ផុតកំណត់ (Exp): '} {variant.expiryDate}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-primary group-hover:scale-110 transition-transform">${variant.price.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             )}

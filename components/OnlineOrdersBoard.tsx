@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 const OnlineOrdersBoard: React.FC = () => {
-    const { onlineOrders, selectOnlineOrder, setIsCreateOrderModalOpen, updateOrderStatus, customers, setCurrentView, selectedOnlineOrder, setIsShippingLabelModalOpen, products, setProducts, updateProduct, updateOnlineOrder, deleteOnlineOrder, setOrders, orders, deductStockFromOrder } = useData();
+    const { onlineOrders, selectOnlineOrder, setIsCreateOrderModalOpen, updateOrderStatus, customers, setCurrentView, selectedOnlineOrder, setIsShippingLabelModalOpen, products, setProducts, updateProduct, updateOnlineOrder, deleteOnlineOrder, setOrders, orders, deductStockFromOrder, user } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     
     // Date Filter State
@@ -31,6 +31,9 @@ const OnlineOrdersBoard: React.FC = () => {
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
 
+    // Permission Check for Deletion
+    const canDelete = ['Admin', 'Super Admin', 'online_sales_lead'].includes(user?.role || '');
+
     const dateOptions = [
         'ថ្ងៃនេះ (Today)',
         'ម្សិលមិញ (Yesterday)',
@@ -39,11 +42,23 @@ const OnlineOrdersBoard: React.FC = () => {
     ];
 
     // Filter logic
-    const filteredOrders = onlineOrders.filter(order => 
-        order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer.phone.includes(searchTerm)
-    );
+    const filteredOrders = onlineOrders.filter(order => {
+        const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+            order.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.customer.phone.includes(searchTerm);
+
+        // Strict Ownership for Level 1 (online_sales)
+        // Only show orders created by the current user if they are Level 1
+        if (user?.role === 'online_sales') {
+            const myId = user?.uid || user?.id;
+            const matchesOwnership = (order as any).staffId === myId || 
+                                     (order as any).cashierId === myId || 
+                                     (order as any).userId === myId || 
+                                     (order as any).createdBy === myId;
+            return matchesSearch && matchesOwnership;
+        }
+        return matchesSearch;
+    });
 
     // Distribute into columns
     const newOrders = filteredOrders.filter(o => o.status === 'New');
@@ -1293,6 +1308,7 @@ const OnlineOrdersBoard: React.FC = () => {
                         </button>
 
                         {/* Delete Button */}
+                        {canDelete && (
                         <button 
                             onClick={(e) => handleDeleteOrder(order, e)}
                             className="p-1.5 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-300 hover:text-red-500 transition-colors mr-1"
@@ -1300,6 +1316,7 @@ const OnlineOrdersBoard: React.FC = () => {
                         >
                             <span className="material-icons-round text-[16px]">delete_outline</span>
                         </button>
+                        )}
                         
                         {order.status !== 'Completed' && (
                             <button 
@@ -1335,6 +1352,7 @@ const OnlineOrdersBoard: React.FC = () => {
                                 >
                                     <span className="material-icons-round text-[13px]">undo</span> ត្រឡប់
                                 </button>
+                                {canDelete && (
                                 <button 
                                     onClick={(e) => handleDeleteOrder(order, e)}
                                     className="px-2.5 py-1 text-[11px] font-bold rounded border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-red-600 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors flex items-center gap-1 font-khmer bg-white dark:bg-slate-800"
@@ -1342,6 +1360,7 @@ const OnlineOrdersBoard: React.FC = () => {
                                 >
                                     <span className="material-icons-round text-[13px]">delete_outline</span> លុប
                                 </button>
+                                )}
                             </div>
                         )}
                     </div>

@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const Dashboard: React.FC = () => {
     const { 
         user, setCurrentView, orders, onlineOrders, leads, products,
-        branches, currentBranch, setCurrentBranch, customers 
+        customers 
     } = useData();
     const [chartPeriod, setChartPeriod] = useState<'Weekly' | 'Monthly'>('Weekly');
     const { role, loading: authLoading } = useAuth();
@@ -43,8 +43,8 @@ const Dashboard: React.FC = () => {
 
     // --- New Calculations for Enhanced Dashboard ---
     const branchAnalytics = useMemo(() => {
-        // Filter orders by current branch
-        const branchOrders = orders.filter(o => o.branchId === currentBranch);
+        // Use raw orders (filtered by global context)
+        const branchOrders = orders;
         
         // Metric A: Today's revenue vs Yesterday's
         const today = new Date();
@@ -64,11 +64,11 @@ const Dashboard: React.FC = () => {
         
         // Metric C: Sales Source (Walk-in vs Facebook vs Telegram)
         const walkInOrders = branchOrders.filter(o => !o.customer?.name || o.customer?.name === 'Walk-in').length;
-        const facebookOrders = onlineOrders.filter(o => o.source === 'Facebook' && o.branchId === currentBranch).length;
-        const telegramOrders = onlineOrders.filter(o => o.source === 'Telegram' && o.branchId === currentBranch).length;
+        const facebookOrders = onlineOrders.filter(o => o.source === 'Facebook').length;
+        const telegramOrders = onlineOrders.filter(o => o.source === 'Telegram').length;
         
         // Metric D: Urgent Tasks (Orders that are New, Pending, or Packing)
-        const urgentCount = onlineOrders.filter(o => (o.status === 'New' || o.status === 'Pending' || o.status === 'Packing') && o.branchId === currentBranch).length;
+        const urgentCount = onlineOrders.filter(o => (o.status === 'New' || o.status === 'Pending' || o.status === 'Packing')).length;
         
         // Metric E: Overdue Debt
         const debtCustomers = customers.filter(c => c.totalDebt > 0);
@@ -104,7 +104,7 @@ const Dashboard: React.FC = () => {
             topDebtors,
             topProducts
         };
-    }, [orders, onlineOrders, currentBranch, customers]);
+    }, [orders, onlineOrders, customers]);
 
     // Recent Activity (Merge orders and take last 5)
     const recentActivity = [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
@@ -194,15 +194,6 @@ const Dashboard: React.FC = () => {
                         <p className="text-sm text-slate-500 font-khmer mt-1">នេះគឺជាទិន្នន័យសង្ខេបសម្រាប់អាជីវកម្មរបស់អ្នកថ្ងៃនេះ។</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <select 
-                            value={currentBranch}
-                            onChange={(e) => setCurrentBranch(e.target.value)}
-                            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-medium text-slate-900 dark:text-white hover:border-primary transition-colors cursor-pointer"
-                        >
-                            {branches.map(branch => (
-                                <option key={branch.id} value={branch.id}>{branch.name}</option>
-                            ))}
-                        </select>
                         <button 
                             onClick={() => setCurrentView('pos')}
                             className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-md shadow-primary/30 active:scale-95 group"

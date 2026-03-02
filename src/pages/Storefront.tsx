@@ -12,10 +12,15 @@ interface Product {
   image?: string;
   stock: number;
   category?: string;
+  variants?: any[];
+  units?: any[];
 }
 
 interface CartItem extends Product {
   quantity: number;
+  variantId?: string;
+  unitId?: string;
+  selectedUnit?: string;
 }
 
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
@@ -30,6 +35,7 @@ const Storefront: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [tenantUID, setTenantUID] = useState<string>('');
+  const [shopSettings, setShopSettings] = useState<any>(null);
 
   // Auth state
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -53,6 +59,11 @@ const Storefront: React.FC = () => {
   const [showKhqrModal, setShowKhqrModal] = useState(false);
   const [khqrPayload, setKhqrPayload] = useState('');
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
+  // Variant & UOM Selection State
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [showUnitModal, setShowUnitModal] = useState(false);
+  const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
   
   // Listen to auth state changes
   useEffect(() => {
@@ -86,6 +97,17 @@ const Storefront: React.FC = () => {
         const tenantUID = tenantDoc.id;
         setTenantUID(tenantUID); // Store tenant UID for later use in checkout
 
+        // Fetch Shop Settings for Display Name
+        try {
+            const settingsRef = doc(db, 'tenants', tenantUID, 'settings', 'shopSettings');
+            const settingsSnap = await getDoc(settingsRef);
+            if (settingsSnap.exists()) {
+                setShopSettings(settingsSnap.data());
+            }
+        } catch (err) {
+            console.error("Error fetching shop settings:", err);
+        }
+
         // Step 2: Query the products collection for this specific tenant
         const productsSnapshot = await getDocs(
           collection(db, 'tenants', tenantUID, 'products')
@@ -113,21 +135,59 @@ const Storefront: React.FC = () => {
   }, [shopId]);
 
   // Cart Functions
-  const addToCart = (product: Product) => {
+  const addItemToCart = (product: Product, quantity = 1, variant?: any, unit?: any) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        // If item already in cart, increase quantity (but not beyond stock)
-        return prev.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
-            : item
-        );
+      const variantId = variant?.id;
+      const unitId = unit?.unitId;
+
+      const existingIndex = prev.findIndex(item => 
+        item.id === product.id && 
+        item.variantId === variantId && 
+        item.unitId === unitId
+      );
+
+      if (existingIndex > -1) {
+        const updatedCart = [...prev];
+        const currentItem = updatedCart[existingIndex];
+        const maxStock = variant ? (variant.stock || 0) : product.stock;
+        
+        updatedCart[existingIndex] = {
+            ...currentItem,
+            quantity: Math.min(currentItem.quantity + quantity, maxStock)
+        };
+        return updatedCart;
       } else {
-        // Add new item with quantity 1
-        return [...prev, { ...product, quantity: 1 }];
+        const newItem: CartItem = {
+            ...product,
+            quantity,
+            variantId,
+            unitId,
+            selectedUnit: unit?.name,
+            price: variant ? variant.price : (unit ? unit.price : product.price),
+            name: variant ? `${product.name} (${variant.name})` : product.name,
+            stock: variant ? (variant.stock || 0) : product.stock
+        };
+        return [...prev, newItem];
       }
     });
+    
+    setShowVariantModal(false);
+    setShowUnitModal(false);
+    setSelectedProductForModal(null);
+  };
+
+  const handleAddToCart = (product: Product) => {
+    if (product.variants && product.variants.length > 0) {
+      setSelectedProductForModal(product);
+      setShowVariantModal(true);
+      return;
+    }
+    if (product.units && product.units.length > 0) {
+      setSelectedProductForModal(product);
+      setShowUnitModal(true);
+      return;
+    }
+    addItemToCart(product);
   };
 
   const increaseQuantity = (productId: number | string) => {
@@ -241,6 +301,9 @@ const Storefront: React.FC = () => {
         stock: item.stock || 0,
         category: item.category || '',
         image: item.image || '',
+        variantId: item.variantId || null,
+        unitId: item.unitId || null,
+        selectedUnit: item.selectedUnit || null,
       }));
 
       const cartTotal = calculateCartTotal();
@@ -379,7 +442,7 @@ const Storefront: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Auth Modal */}
       {showAuthModal && <CustomerAuthModal onClose={() => setShowAuthModal(false)} />}
 
@@ -387,11 +450,15 @@ const Storefront: React.FC = () => {
       <header className="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">🏪</span>
-            </div>
+            {shopSettings?.logo ? (
+              <img src={shopSettings.logo} alt="Store Logo" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">🏪</span>
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">Digital Storefront</h1>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white">{shopSettings?.name || 'Digital Storefront'}</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400">Shop ID: {shopId}</p>
             </div>
           </div>
@@ -448,7 +515,7 @@ const Storefront: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center">
           <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4">
-            Welcome to the Digital Store of: <span className="text-blue-600">{shopId}</span>
+            Welcome to the Digital Store of: <span className="text-blue-600">{shopSettings?.name || shopId}</span>
           </h2>
           <p className="text-lg text-slate-600 dark:text-slate-300 mb-8">
             Discover amazing products and great service
@@ -510,7 +577,7 @@ const Storefront: React.FC = () => {
                     ${(product.price || 0).toFixed(2)}
                   </span>
                   <button
-                    onClick={() => addToCart(product)}
+                    onClick={() => handleAddToCart(product)}
                     disabled={product.stock <= 0}
                     className={`px-4 py-2 rounded-lg font-medium transition ${
                       product.stock > 0
@@ -757,6 +824,95 @@ const Storefront: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Variant Selection Modal */}
+      {showVariantModal && selectedProductForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowVariantModal(false)}></div>
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">Select Option</h3>
+                <button onClick={() => setShowVariantModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><span className="text-2xl">×</span></button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+                <div className="space-y-2">
+                    {(() => {
+                        // Group variants by name to merge batches (FEFO logic)
+                        const groupedVariants = selectedProductForModal.variants?.reduce((acc: any[], variant: any) => {
+                            const existing = acc.find(v => v.name === variant.name);
+                            if (existing) {
+                                existing.stock = (existing.stock || 0) + (variant.stock || 0);
+                                // FEFO: Use ID of the variant with earliest expiry date
+                                if (variant.expiryDate) {
+                                    if (!existing.expiryDate || new Date(variant.expiryDate) < new Date(existing.expiryDate)) {
+                                        existing.id = variant.id;
+                                        existing.expiryDate = variant.expiryDate;
+                                    }
+                                }
+                            } else {
+                                acc.push({ ...variant });
+                            }
+                            return acc;
+                        }, []) || [];
+
+                        return groupedVariants.map((variant: any) => {
+                            const isOutOfStock = (variant.stock || 0) <= 0;
+                            return (
+                                <button 
+                                    key={variant.id}
+                                    disabled={isOutOfStock}
+                                    onClick={() => addItemToCart(selectedProductForModal, 1, variant)}
+                                    className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${isOutOfStock ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800/50' : 'border-slate-200 hover:border-blue-500 hover:bg-blue-50 dark:border-slate-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 bg-white dark:bg-slate-800'}`}
+                                >
+                                    <div className="text-left">
+                                        <p className="font-bold text-slate-900 dark:text-white">{variant.name}</p>
+                                        <p className={`text-xs ${isOutOfStock ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                                            {isOutOfStock ? 'Out of Stock' : `${variant.stock} available`}
+                                        </p>
+                                    </div>
+                                    <p className="font-bold text-blue-600 dark:text-blue-400">${variant.price.toFixed(2)}</p>
+                                </button>
+                            );
+                        });
+                    })()}
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unit Selection Modal */}
+      {showUnitModal && selectedProductForModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowUnitModal(false)}></div>
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">Select Unit</h3>
+                <button onClick={() => setShowUnitModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><span className="text-2xl">×</span></button>
+            </div>
+            <div className="p-4 overflow-y-auto">
+                <div className="space-y-2">
+                    {selectedProductForModal.units?.map((unit: any) => (
+                        <button 
+                            key={unit.unitId}
+                            onClick={() => addItemToCart(selectedProductForModal, 1, undefined, unit)}
+                            className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 dark:border-slate-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/20 bg-white dark:bg-slate-800 transition-all"
+                        >
+                            <div className="text-left">
+                                <p className="font-bold text-slate-900 dark:text-white">{unit.name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {unit.multiplier > 1 ? `Contains ${unit.multiplier} items` : 'Single Item'}
+                                </p>
+                            </div>
+                            <p className="font-bold text-blue-600 dark:text-blue-400">${unit.price.toFixed(2)}</p>
+                        </button>
+                    ))}
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="bg-slate-900 dark:bg-slate-950 text-white py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-4 gap-8 mb-8">
@@ -787,9 +943,10 @@ const Storefront: React.FC = () => {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-sm text-slate-400">
-                <li>Email: info@store.com</li>
-                <li>Phone: +855 12 345 678</li>
-                <li>Hours: 9AM - 6PM</li>
+                <li>Email: {shopSettings?.email || 'N/A'}</li>
+                <li>Phone: {shopSettings?.phone || 'N/A'}</li>
+                <li>Address: {shopSettings?.address || 'Not provided'}</li>
+                <li>Hours: {shopSettings?.operatingHours || 'N/A'}</li>
               </ul>
             </div>
           </div>

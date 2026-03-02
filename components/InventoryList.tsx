@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useData, Product } from '../context/DataContext';
 import { sendLowStockAlert } from '../utils/telegramAlert';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { db } from '../src/config/firebase';
 
 const InventoryList: React.FC = () => {
-    const { products, setCurrentView, setEditingProduct } = useData();
+    const { products, setCurrentView, setEditingProduct, user } = useData();
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [search, setSearch] = useState('');
@@ -46,10 +48,23 @@ const InventoryList: React.FC = () => {
         );
     };
 
-    const handleDelete = (product: Product) => {
-        console.log('Delete product:', product.id, product.name);
-        // TODO: Implement delete logic in next step
-        alert(`Deleting product: ${product.name}`);
+    const handleDelete = async (product: Product) => {
+        if (!window.confirm('តើអ្នកពិតជាចង់លុបទំនិញនេះមែនទេ? (Are you sure you want to delete this product?)')) {
+            return;
+        }
+
+        if (!user || !user.uid) {
+            alert('Error: User not authenticated. Please log in again.');
+            return;
+        }
+
+        try {
+            await deleteDoc(doc(db, 'tenants', user.uid, 'products', String(product.id)));
+            alert(`✅ Product "${product.name}" deleted successfully!`);
+        } catch (error: any) {
+            console.error('Error deleting product:', error);
+            alert(`❌ Failed to delete product "${product.name}": ${error.message}`);
+        }
     };
 
     const handleTestTelegram = async () => {
@@ -60,6 +75,20 @@ const InventoryList: React.FC = () => {
             alert('❌ មានបញ្ហាក្នុងការបញ្ជូនសារ សូមឆែកមើល Console!');
         }
     };
+
+    // Calculate dynamic counts for summary cards
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+
+    products.forEach(p => {
+        const totalStock = p.variants?.length ? p.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0) : (Number(p.stock) || 0);
+        
+        if (totalStock <= 0) {
+            outOfStockCount++;
+        } else if (totalStock <= ((p as any).lowStockThreshold || 5)) {
+            lowStockCount++;
+        }
+    });
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
@@ -100,10 +129,12 @@ const InventoryList: React.FC = () => {
                                     <span className="material-icons text-[20px]">send</span>
                                     <span className="font-khmer text-sm font-medium">Test Telegram</span>
                                 </button>
+                                {user?.role !== 'online_sales' && (
                                 <button onClick={handleAdd} className="bg-primary hover:bg-blue-600 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all shadow-md shadow-primary/20">
                                     <span className="material-icons text-[20px]">add</span>
                                     <span className="font-khmer text-sm font-medium">បន្ថែមទំនិញ (Add Product)</span>
                                 </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -122,7 +153,13 @@ const InventoryList: React.FC = () => {
                         <div className="bg-white dark:bg-[#1a2634] p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between">
                             <div>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm font-medium font-khmer mb-1">តម្លៃសរុប (Value)</p>
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${products.reduce((acc, p) => acc + (p.stock || 0) * p.price, 0).toLocaleString()}</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${products.reduce((acc, p) => {
+                                    if (p.variants && p.variants.length > 0) {
+                                        const variantValue = p.variants.reduce((vSum, v) => vSum + ((Number(v.price) || 0) * (Number(v.stock) || 0)), 0);
+                                        return acc + variantValue;
+                                    }
+                                    return acc + ((Number(p.price) || 0) * (Number(p.stock) || 0));
+                                }, 0).toLocaleString()}</h3>
                             </div>
                             <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-green-600">
                                 <span className="material-icons">payments</span>
@@ -131,7 +168,7 @@ const InventoryList: React.FC = () => {
                         <div className="bg-white dark:bg-[#1a2634] p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between">
                             <div>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm font-medium font-khmer mb-1">ជិតអស់ស្តុក (Low)</p>
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{products.filter(p => p.status === 'Low Stock').length}</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{lowStockCount}</h3>
                             </div>
                             <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-amber-600">
                                 <span className="material-icons">warning</span>
@@ -140,7 +177,7 @@ const InventoryList: React.FC = () => {
                         <div className="bg-white dark:bg-[#1a2634] p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-start justify-between">
                             <div>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm font-medium font-khmer mb-1">អស់ស្តុក (Out)</p>
-                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{products.filter(p => p.status === 'Out of Stock').length}</h3>
+                                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{outOfStockCount}</h3>
                             </div>
                             <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600">
                                 <span className="material-icons">block</span>
@@ -217,7 +254,17 @@ const InventoryList: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                    {filteredProducts.map(product => (
+                                    {filteredProducts.map(product => {
+                                        const totalStock = product.variants?.length ? product.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0) : (product.stock || 0);
+                                        
+                                        let dynamicStatus = 'In Stock';
+                                        if (totalStock <= 0) {
+                                            dynamicStatus = 'Out of Stock';
+                                        } else if (totalStock <= ((product as any).lowStockThreshold || 5)) {
+                                            dynamicStatus = 'Low Stock';
+                                        }
+
+                                        return (
                                         <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                                             <td className="p-4">
                                                 <input 
@@ -261,28 +308,38 @@ const InventoryList: React.FC = () => {
                                                 <span className="text-slate-900 dark:text-white font-medium">{product.cost ? '$' + product.cost.toFixed(2) : '$0.00'}</span>
                                             </td>
                                             <td className="p-4">
-                                                <span className="text-slate-900 dark:text-white font-medium">${product.price.toFixed(2)}</span>
+                                                <span className="text-slate-900 dark:text-white font-medium">
+                                                    {(() => {
+                                                        if (product.variants && product.variants.length > 0) {
+                                                            const variantPrices = product.variants.map(v => Number(v.price) || 0);
+                                                            const minPrice = Math.min(...variantPrices);
+                                                            const maxPrice = Math.max(...variantPrices);
+                                                            return minPrice === maxPrice ? `$${minPrice.toFixed(2)}` : `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`;
+                                                        }
+                                                        return `$${(Number(product.price) || 0).toFixed(2)}`;
+                                                    })()}
+                                                </span>
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-slate-900 dark:text-white font-medium">{product.stock} PCS</span>
+                                                    <span className="text-slate-900 dark:text-white font-medium">{totalStock} PCS</span>
                                                     <span className="text-slate-500 dark:text-slate-400 text-xs">{product.variants?.length ? `${product.variants.length} Variants` : 'Single Item'}</span>
                                                 </div>
                                             </td>
                                             <td className="p-4">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border
-                                                    ${product.status === 'In Stock' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800' : ''}
-                                                    ${product.status === 'Low Stock' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' : ''}
-                                                    ${product.status === 'Out of Stock' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800' : ''}
+                                                    ${dynamicStatus === 'In Stock' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800' : ''}
+                                                    ${dynamicStatus === 'Low Stock' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800' : ''}
+                                                    ${dynamicStatus === 'Out of Stock' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800' : ''}
                                                 `}>
                                                     <span className={`w-1.5 h-1.5 rounded-full 
-                                                        ${product.status === 'In Stock' ? 'bg-green-600 dark:bg-green-400' : ''}
-                                                        ${product.status === 'Low Stock' ? 'bg-amber-600 dark:bg-amber-400' : ''}
-                                                        ${product.status === 'Out of Stock' ? 'bg-red-600 dark:bg-red-400' : ''}
+                                                        ${dynamicStatus === 'In Stock' ? 'bg-green-600 dark:bg-green-400' : ''}
+                                                        ${dynamicStatus === 'Low Stock' ? 'bg-amber-600 dark:bg-amber-400' : ''}
+                                                        ${dynamicStatus === 'Out of Stock' ? 'bg-red-600 dark:bg-red-400' : ''}
                                                     `}></span>
-                                                    {product.status === 'In Stock' && 'មានស្តុក (In Stock)'}
-                                                    {product.status === 'Low Stock' && 'ជិតអស់ស្តុក (Low)'}
-                                                    {product.status === 'Out of Stock' && 'អស់ស្តុក (Out)'}
+                                                    {dynamicStatus === 'In Stock' && 'មានស្តុក (In Stock)'}
+                                                    {dynamicStatus === 'Low Stock' && 'ជិតអស់ស្តុក (Low)'}
+                                                    {dynamicStatus === 'Out of Stock' && 'អស់ស្តុក (Out)'}
                                                 </span>
                                             </td>
                                             <td className="p-4">
@@ -326,6 +383,7 @@ const InventoryList: React.FC = () => {
                                                 })()}
                                             </td>
                                             <td className="p-4">
+                                                {user?.role !== 'online_sales' && (
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button onClick={() => handleEdit(product)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit Product">
                                                         <span className="material-icons text-[20px]">edit</span>
@@ -334,9 +392,11 @@ const InventoryList: React.FC = () => {
                                                         <span className="material-icons text-[20px]">delete</span>
                                                     </button>
                                                 </div>
+                                                )}
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

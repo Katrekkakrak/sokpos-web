@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import React, { useState, useEffect, useRef } from 'react';
+import { useData, Branch } from '../context/DataContext';
 import ShippingSettings from './ShippingSettings';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../src/config/firebase';
@@ -7,15 +7,58 @@ import { db } from '../src/config/firebase';
 const ShopSettings: React.FC = () => {
     const { shopSettings, updateShopSettings, setCurrentView, user } = useData();
     const [formData, setFormData] = useState(shopSettings);
+    const [operatingHours, setOperatingHours] = useState('');
     const [activeTab, setActiveTab] = useState('general');
+    const [newBranchName, setNewBranchName] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setFormData(shopSettings);
+        setOperatingHours((shopSettings as any).operatingHours || '');
     }, [shopSettings]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFormData(prev => ({ ...prev, logo: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveLogo = () => {
+        setFormData(prev => ({ ...prev, logo: '' }));
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleAddBranch = () => {
+        if (!newBranchName.trim()) return;
+        const newBranch: Branch = { id: `b-${Date.now()}`, name: newBranchName.trim() };
+        const currentBranches = (formData as any).branches || [];
+        setFormData(prev => ({ ...prev, branches: [...currentBranches, newBranch] }));
+        setNewBranchName('');
+    };
+
+    const handleUpdateBranch = (id: string, name: string) => {
+        const currentBranches = (formData as any).branches || [];
+        const updatedBranches = currentBranches.map((b: Branch) => b.id === id ? { ...b, name } : b);
+        setFormData(prev => ({ ...prev, branches: updatedBranches }));
+    };
+
+    const handleDeleteBranch = (id: string) => {
+        if (window.confirm('តើអ្នកពិតជាចង់លុបសាខានេះមែនទេ? (Are you sure you want to delete this branch?)')) {
+            const currentBranches = (formData as any).branches || [];
+            setFormData(prev => ({ ...prev, branches: currentBranches.filter((b: Branch) => b.id !== id) }));
+        }
     };
 
     const handleSave = async () => {
@@ -24,25 +67,35 @@ const ShopSettings: React.FC = () => {
             return;
         }
 
-        try {
-            const payload = {
-                ...formData,
-                telegramToken: formData.telegramToken || "",
-                telegramChatId: formData.telegramChatId || "",
-                bakongAccountId: formData.bakongAccountId || "",
-                bankAccountName: formData.bankAccountName || ""
-            };
-            
-            // Direct save to cloud
-            const settingsRef = doc(db, 'tenants', user.uid, 'settings', 'shopSettings');
-            await setDoc(settingsRef, payload, { merge: true });
-            
-            updateShopSettings(payload); // Update local state
-            alert('ការកំណត់ត្រូវបានរក្សាទុកជោគជ័យ! (Settings saved to Cloud!) 🚀');
-        } catch (error) {
-            console.error("Failed to save settings:", error);
-            alert('បរាជ័យក្នុងការរក្សាទុក! (Failed to save)');
-        }
+    try {
+        // Sanitize formData to prevent Firestore 'undefined' errors.
+        // This ensures all fields have a default value if they are not set.
+        const payload = {
+            name: formData.name || '',
+            phone: formData.phone || '',
+            email: formData.email || '',
+            address: formData.address || '',
+            operatingHours: operatingHours || '',
+            logo: formData.logo || '',
+            timezone: formData.timezone || '(GMT+07:00) Phnom Penh',
+            currency: formData.currency || 'USD',
+            taxRate: Number(formData.taxRate) || 0,
+            telegramToken: formData.telegramToken || '',
+            telegramChatId: formData.telegramChatId || '',
+            bakongAccountId: (formData as any).bakongAccountId || '',
+            bankAccountName: (formData as any).bankAccountName || '',
+            branches: (formData as any).branches || []
+        };
+
+        // Direct save to cloud
+        const settingsRef = doc(db, 'tenants', user.uid, 'settings', 'shopSettings');
+        await setDoc(settingsRef, payload, { merge: true });
+
+        alert('ការកំណត់ត្រូវបានរក្សាទុកជោគជ័យ! (Settings saved successfully!) 🚀');
+    } catch (error) {
+        console.error("Failed to save settings:", error);
+        alert('បរាជ័យក្នុងការរក្សាទុក! (Failed to save)');
+    }
     };
 
     return (
@@ -130,10 +183,13 @@ const ShopSettings: React.FC = () => {
                                 </div>
                                 <div className="md:col-span-2">
                                     <div className="flex items-center gap-6">
-                                        <div className="relative group h-24 w-24 shrink-0 rounded-full border border-border-light dark:border-border-dark overflow-hidden bg-gray-50 dark:bg-gray-800 flex items-center justify-center">
+                                        <div 
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="relative group h-24 w-24 shrink-0 rounded-full border border-border-light dark:border-border-dark overflow-hidden bg-gray-50 dark:bg-gray-800 flex items-center justify-center cursor-pointer"
+                                        >
                                             {/* Placeholder or Current Logo */}
                                             {formData.logo ? (
-                                                <div className="h-full w-full bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url('${formData.logo}')` }}></div>
+                                                <img src={formData.logo} alt="Shop Logo" className="h-full w-full object-contain" />
                                             ) : (
                                                 <span className="material-symbols-outlined text-4xl text-gray-400">store</span>
                                             )}
@@ -144,14 +200,23 @@ const ShopSettings: React.FC = () => {
                                         </div>
                                         <div className="flex flex-col gap-3">
                                             <div className="flex gap-3">
-                                                <button className="rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark px-3 py-2 text-sm font-medium text-text-primary shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all font-khmer" type="button">
+                                                <button 
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="rounded-lg bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark px-3 py-2 text-sm font-medium text-text-primary shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all font-khmer" 
+                                                    type="button"
+                                                >
                                                     ផ្លាស់ប្តូរ (Change)
                                                 </button>
-                                                <button className="rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-khmer" type="button">
+                                                <button 
+                                                    onClick={handleRemoveLogo}
+                                                    className="rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-khmer" 
+                                                    type="button"
+                                                >
                                                     លុប (Remove)
                                                 </button>
                                             </div>
                                             <p className="text-xs text-text-secondary font-khmer">ណែនាំអោយប្រើរូបភាពដែលមានទំហំស្មើគ្នា (Square ratio 1:1)</p>
+                                            <input type="file" accept="image/png, image/jpeg, image/svg+xml" ref={fileInputRef} className="hidden" onChange={handleLogoChange} />
                                         </div>
                                     </div>
                                 </div>
@@ -214,6 +279,21 @@ const ShopSettings: React.FC = () => {
                                         value={formData.address} onChange={handleChange}
                                     ></textarea>
                                     <p className="mt-2 text-xs text-text-secondary font-khmer">អាសយដ្ឋាននេះនឹងបង្ហាញនៅលើវិក្កយបត្ររបស់អតិថិជន។</p>
+                                </div>
+                            </div>
+
+                            {/* Operating Hours */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                                <label className="block text-sm font-semibold text-text-primary font-khmer" htmlFor="operatingHours">ម៉ោងបើកហាង (Operating Hours)</label>
+                                <div className="md:col-span-2">
+                                    <input 
+                                        className="block w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 px-3 font-khmer" 
+                                        id="operatingHours" 
+                                        placeholder="ឧ. 8:00 AM - 9:00 PM" 
+                                        type="text" 
+                                        value={operatingHours} 
+                                        onChange={(e) => setOperatingHours(e.target.value)}
+                                    />
                                 </div>
                             </div>
 
@@ -332,6 +412,65 @@ const ShopSettings: React.FC = () => {
                     {/* Shipping Zones & Delivery Fees Section */}
                     <div className="mt-12 pt-8 border-t border-border-light dark:border-border-dark">
                         <ShippingSettings />
+                    </div>
+
+                    {/* Branch Management Section */}
+                    <div className="mt-12 pt-8 border-t border-border-light dark:border-border-dark">
+                        <h2 className="text-xl font-semibold mb-4 text-text-primary font-khmer">សាខា (Branch Management)</h2>
+                        
+                        <div className="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6 md:p-8">
+                            {/* Add Branch */}
+                            <div className="flex gap-3 mb-6">
+                                <input 
+                                    type="text" 
+                                    value={newBranchName}
+                                    onChange={(e) => setNewBranchName(e.target.value)}
+                                    placeholder="ឈ្មោះសាខាថ្មី (New Branch Name)"
+                                    className="flex-1 block w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 px-3 font-khmer"
+                                />
+                                <button 
+                                    onClick={handleAddBranch}
+                                    className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white transition-colors text-sm font-medium shadow-sm flex items-center gap-2 font-khmer whitespace-nowrap"
+                                >
+                                    <span className="material-symbols-outlined text-[20px]">add</span>
+                                    បន្ថែម (Add)
+                                </button>
+                            </div>
+
+                            {/* Branch List */}
+                            <div className="space-y-3">
+                                {((formData as any).branches || []).map((branch: Branch) => (
+                                    <div key={branch.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-border-light dark:border-border-dark group">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-primary shrink-0">
+                                                <span className="material-symbols-outlined">store</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <input 
+                                                    type="text"
+                                                    value={branch.name}
+                                                    onChange={(e) => handleUpdateBranch(branch.id, e.target.value)}
+                                                    className="bg-transparent border-none focus:ring-0 p-0 font-medium text-text-primary font-khmer w-full"
+                                                />
+                                                <p className="text-xs text-text-secondary">ID: {branch.id}</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleDeleteBranch(branch.id)}
+                                            className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Delete Branch"
+                                        >
+                                            <span className="material-symbols-outlined">delete</span>
+                                        </button>
+                                    </div>
+                                ))}
+                                {(!((formData as any).branches) || (formData as any).branches.length === 0) && (
+                                    <div className="text-center py-8 border-2 border-dashed border-border-light dark:border-border-dark rounded-lg">
+                                        <p className="text-text-secondary font-khmer">មិនទាន់មានសាខាទេ។ (No branches yet)</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                     </>
                     )}

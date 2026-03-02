@@ -49,7 +49,9 @@ const StaffManagement: React.FC = () => {
                     {/* Breadcrumbs */}
                     <div className="mb-6 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                         <button onClick={() => setCurrentView('dashboard')} className="hover:text-primary">ការកំណត់</button>
-                        <span className="material-symbols-outlined text-xs">chevron_right</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                         <span className="font-medium text-slate-900 dark:text-white">បុគ្គលិក (Staff)</span>
                     </div>
                     {/* Page Header */}
@@ -62,7 +64,9 @@ const StaffManagement: React.FC = () => {
                             onClick={() => setIsSlideOverOpen(true)}
                             className="group flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-white shadow-sm transition-all hover:bg-blue-600 active:scale-95"
                         >
-                            <span className="material-symbols-outlined text-xl">add</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
                             <span className="khmer-text font-medium">បន្ថែមបុគ្គលិក</span>
                         </button>
                     </div>
@@ -71,7 +75,9 @@ const StaffManagement: React.FC = () => {
                     <div className="mb-6 grid grid-cols-1 gap-4 rounded-xl bg-white p-4 shadow-sm dark:bg-slate-900 sm:grid-cols-12">
                         <div className="relative sm:col-span-5 md:col-span-4">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
-                                <span className="material-symbols-outlined">search</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                                </svg>
                             </div>
                             <input className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500" placeholder="ស្វែងរកឈ្មោះបុគ្គលិក..." type="text"/>
                         </div>
@@ -108,25 +114,25 @@ const StaffManagement: React.FC = () => {
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                                     {staff.map(s => (
                                         <tr key={s.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 max-w-xs">
                                                 <div className="flex items-center gap-3">
                                                     {s.avatar && s.avatar.startsWith('http') ? (
-                                                        <div className="h-10 w-10 overflow-hidden rounded-full bg-slate-100">
+                                                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-100">
                                                             <img src={s.avatar} alt={s.name} className="h-full w-full object-cover" />
                                                         </div>
                                                     ) : (
-                                                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                                                             {s.avatar ? s.avatar : s.name.substring(0, 2).toUpperCase()}
                                                         </div>
                                                     )}
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-slate-900 dark:text-white">{s.name}</span>
-                                                        <span className="text-xs text-slate-500">{s.email}</span>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="font-medium text-slate-900 dark:text-white break-words whitespace-normal leading-relaxed">{s.name}</span>
+                                                        <span className="text-xs text-slate-500 break-words whitespace-normal leading-relaxed">{s.email}</span>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium 
+                                                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium break-words whitespace-normal leading-relaxed
                                                     ${s.role === 'Admin' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 
                                                       s.role === 'Cashier' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                                                       'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'}
@@ -157,12 +163,16 @@ const StaffManagement: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
+                                                <div className="flex items-center justify-end gap-3">
                                                     <button onClick={() => handleEdit(s)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-primary dark:hover:bg-slate-700 transition-colors">
-                                                        <span className="material-symbols-outlined text-[20px]">edit</span>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                                                        </svg>
                                                     </button>
                                                     <button onClick={() => handleDelete(s.id)} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors">
-                                                        <span className="material-symbols-outlined text-[20px]">delete</span>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                        </svg>
                                                     </button>
                                                 </div>
                                             </td>
@@ -176,15 +186,19 @@ const StaffManagement: React.FC = () => {
                             <div className="text-sm text-slate-500">
                                 Showing <span className="font-medium text-slate-900 dark:text-white">1-{staff.length}</span> of <span className="font-medium text-slate-900 dark:text-white">12</span> staff
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-1">
                                 <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700">
-                                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                                    </svg>
                                 </button>
                                 <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">1</button>
                                 <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">2</button>
                                 <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">3</button>
                                 <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:bg-slate-50 hover:text-primary dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700">
-                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                    </svg>
                                 </button>
                             </div>
                         </div>
@@ -202,7 +216,9 @@ const StaffManagement: React.FC = () => {
                                 {editingId ? 'កែប្រែព័ត៌មានបុគ្គលិក (Edit Staff)' : 'បុគ្គលិកថ្មី (New Staff)'}
                             </h2>
                             <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-                                <span className="material-symbols-outlined">close</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6">
@@ -233,21 +249,25 @@ const StaffManagement: React.FC = () => {
                                 <div className="flex flex-col gap-3">
                                     <label className="text-sm font-medium text-slate-700 dark:text-slate-300">តួនាទី (Role)</label>
                                     <div className="grid grid-cols-1 gap-3">
-                                        {['Cashier', 'Admin', 'Packer'].map(role => (
-                                            <label key={role} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50 dark:hover:bg-slate-800 ${newStaff.role === role ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-700'}`}>
+                                        {[
+                                            { id: 'Cashier', label: 'អ្នកគិតលុយ (Cashier)', desc: 'Can process sales, view products, and close shifts.' },
+                                            { id: 'Admin', label: 'អ្នកគ្រប់គ្រង (Admin)', desc: 'Full access to settings, staff management, and reports.' },
+                                            { id: 'Packer', label: 'អ្នកខ្ចប់ (Packer)', desc: 'View orders and update fulfillment status only.' },
+                                            { id: 'online_sales', label: 'អ្នកលក់អនឡាញ (Online Sales 1)', desc: 'Manage CRM, create online orders, print labels, and view products.' },
+                                            { id: 'online_sales_lead', label: 'មេក្រុមអនឡាញ (Online Sales Lead)', desc: 'Everything in Level 1 + Edit products, void receipts, and apply discounts.' }
+                                        ].map(roleOption => (
+                                            <label key={roleOption.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50 dark:hover:bg-slate-800 ${newStaff.role === roleOption.id ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-slate-200 dark:border-slate-700'}`}>
                                                 <input 
                                                     type="radio" 
                                                     name="role" 
                                                     className="mt-1 text-primary focus:ring-primary"
-                                                    checked={newStaff.role === role}
-                                                    onChange={() => setNewStaff({ ...newStaff, role: role as any })}
+                                                    checked={newStaff.role === roleOption.id}
+                                                    onChange={() => setNewStaff({ ...newStaff, role: roleOption.id as any })}
                                                 />
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-medium text-slate-900 dark:text-white">{role === 'Cashier' ? 'អ្នកគិតលុយ (Cashier)' : role === 'Admin' ? 'អ្នកគ្រប់គ្រង (Admin)' : 'អ្នកខ្ចប់ (Packer)'}</span>
+                                                    <span className="text-sm font-medium text-slate-900 dark:text-white">{roleOption.label}</span>
                                                     <span className="text-xs text-slate-500">
-                                                        {role === 'Cashier' && 'Can process sales, view products, and close shifts.'}
-                                                        {role === 'Admin' && 'Full access to settings, staff management, and reports.'}
-                                                        {role === 'Packer' && 'View orders and update fulfillment status only.'}
+                                                        {roleOption.desc}
                                                     </span>
                                                 </div>
                                             </label>
@@ -267,7 +287,10 @@ const StaffManagement: React.FC = () => {
                                             placeholder={editingId ? "Leave blank to keep current" : "******"} 
                                         />
                                         <button className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600" type="button">
-                                            <span className="material-symbols-outlined text-lg">visibility</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
                                         </button>
                                     </div>
                                     <p className="text-xs text-slate-500">Minimum 6 characters for login.</p>

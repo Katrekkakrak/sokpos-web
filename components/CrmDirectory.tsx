@@ -25,6 +25,7 @@ const CrmDirectory: React.FC = () => {
         { id: 'interested_in', label: 'ចំណាប់អារម្មណ៍ (INTERESTED IN)' },
         { id: 'custom_fields', label: 'ព័ត៌មានបន្ថែម (CUSTOM FIELDS)' },
         { id: 'map', label: 'ទីតាំង (MAP)' },
+        { id: 'handler', label: 'អ្នកទទួលខុសត្រូវ (HANDLED BY)' },
         { id: 'joined', label: 'ថ្ងៃចុះឈ្មោះ (JOINED)' },
         { id: 'stage', label: 'ស្ថានភាព (STAGE)' },
         { id: 'actions', label: 'សកម្មភាព (ACTIONS)' }
@@ -858,6 +859,17 @@ const CrmDirectory: React.FC = () => {
                                                         </>
                                                     )}
                                                     
+                                                    {col.id === 'handler' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+                                                                {(contact.staffName || 'A').substring(0, 1).toUpperCase()}
+                                                            </div>
+                                                            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                                                                {contact.staffName || 'Admin'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
                                                     {col.id === 'joined' && (
                                                         <div className="text-sm text-slate-600 dark:text-slate-400 font-medium">
                                                             {contact.joinedDate ? contact.joinedDate : '-'}
