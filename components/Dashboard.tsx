@@ -8,7 +8,7 @@ const Dashboard: React.FC = () => {
         user, setCurrentView, orders, onlineOrders, leads, products,
         customers 
     } = useData();
-    const [chartPeriod, setChartPeriod] = useState<'Weekly' | 'Monthly'>('Weekly');
+    const [revenueView, setRevenueView] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
     const { role, loading: authLoading } = useAuth();
     
     // Store Link Logic
@@ -111,6 +111,72 @@ const Dashboard: React.FC = () => {
 
     // Latest Invoices (Last 5)
     const latestInvoices = [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+    // --- Dynamic Revenue Chart Data ---
+    const chartData = useMemo(() => {
+        const today = new Date();
+        const currentData: { label: string; value: number }[] = [];
+        
+        if (revenueView === 'daily') {
+            // Full 24-hour breakdown
+            const labels = [
+                '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', '5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM',
+                '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM', '10 PM', '11 PM'
+            ];
+            const buckets = new Array(24).fill(0);
+            
+            orders.forEach(order => {
+                const orderDate = new Date(order.date);
+                if (orderDate.toDateString() === today.toDateString()) {
+                    const hour = orderDate.getHours();
+                    if (hour >= 0 && hour < 24) {
+                        buckets[hour] += order.total;
+                    }
+                }
+            });
+            
+            buckets.forEach((val, idx) => {
+                currentData.push({ label: labels[idx], value: val });
+            });
+
+        } else if (revenueView === 'weekly') {
+            // Last 7 days
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dayStr = d.toDateString();
+                const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+                
+                const dailySum = orders
+                    .filter(o => new Date(o.date).toDateString() === dayStr)
+                    .reduce((sum, o) => sum + o.total, 0);
+                
+                currentData.push({ label: dayName, value: dailySum });
+            }
+
+        } else if (revenueView === 'monthly') {
+            // This month chunks: 1-5, 6-10, 11-15, 16-20, 21-25, 26+
+            const labels = ['1-5', '6-10', '11-15', '16-20', '21-25', '26+'];
+            const buckets = [0, 0, 0, 0, 0, 0];
+            
+            orders.forEach(order => {
+                const orderDate = new Date(order.date);
+                if (orderDate.getMonth() === today.getMonth() && orderDate.getFullYear() === today.getFullYear()) {
+                    const day = orderDate.getDate();
+                    let bucketIndex = Math.floor((day - 1) / 5);
+                    if (bucketIndex > 5) bucketIndex = 5;
+                    buckets[bucketIndex] += order.total;
+                }
+            });
+
+            buckets.forEach((val, idx) => {
+                currentData.push({ label: labels[idx], value: val });
+            });
+        }
+
+        const maxVal = Math.max(...currentData.map(d => d.value), 1);
+        return { data: currentData, maxVal };
+    }, [orders, revenueView]);
 
     if (authLoading) {
         return <div className="flex h-screen items-center justify-center"><span className="loading loading-spinner loading-lg text-primary"></span></div>;
@@ -336,30 +402,58 @@ const Dashboard: React.FC = () => {
 
                 {/* Main Section Grid: Chart + Feed */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Weekly Revenue Bar Chart (Left) */}
+                    {/* Revenue Bar Chart (Left) */}
                     <div className="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
-                        <div className="mb-6">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-khmer">ក្រាហ្វលក់សប្ताហ៍ (Weekly Revenue)</h3>
-                            <p className="text-xs text-slate-500 mt-1">Revenue trends by day</p>
+                        <div className="mb-6 flex items-start justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white font-khmer">ចំណូល (Revenue)</h3>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    {revenueView === 'daily' ? 'Hourly breakdown' : revenueView === 'weekly' ? 'Last 7 days' : 'This month'}
+                                </p>
+                            </div>
+                            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                                <button 
+                                    onClick={() => setRevenueView('daily')}
+                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'daily' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                >
+                                    Today
+                                </button>
+                                <button 
+                                    onClick={() => setRevenueView('weekly')}
+                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'weekly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                >
+                                    Week
+                                </button>
+                                <button 
+                                    onClick={() => setRevenueView('monthly')}
+                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'monthly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                >
+                                    Month
+                                </button>
+                            </div>
                         </div>
                         
-                        {/* Simplified Bar Chart */}
-                        <div className="flex-1 min-h-[250px] w-full relative flex items-end justify-between gap-2 pt-8 pb-6 px-1 border-b border-l border-slate-100 dark:border-slate-700">
-                            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, idx) => {
-                                const height = [40, 55, 45, 65, 85, 92, 75][idx];
-                                return (
-                                    <div key={label} className="relative flex flex-col items-center flex-1 group h-full justify-end z-10 cursor-pointer">
-                                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-1 transition-opacity whitespace-nowrap">
-                                            ${(height * 12.5).toFixed(0)}
+                        {/* Dynamic Bar Chart */}
+                        <div className="flex-1 min-h-[250px] w-full relative overflow-x-auto custom-scroll pb-2 border-b border-l border-slate-100 dark:border-slate-700">
+                            <div className={`flex items-end justify-between h-full pt-8 pb-6 px-1 ${revenueView === 'daily' ? 'min-w-[800px] gap-1' : 'w-full gap-2'}`}>
+                                {chartData.data.map((item, idx) => {
+                                    const height = (item.value / chartData.maxVal) * 100;
+                                    return (
+                                        <div key={idx} className="relative flex flex-col items-center flex-1 group h-full justify-end z-10 cursor-pointer">
+                                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-1 transition-opacity whitespace-nowrap z-20">
+                                                ${item.value.toFixed(2)}
+                                            </div>
+                                            <div 
+                                                className="w-full max-w-[20px] bg-primary/20 group-hover:bg-primary/40 rounded-t-sm transition-all" 
+                                                style={{ height: `${height}%` }}
+                                            ></div>
+                                            <span className="text-[10px] text-slate-400 mt-2 font-medium whitespace-nowrap overflow-hidden text-ellipsis w-full text-center">
+                                                {item.label}
+                                            </span>
                                         </div>
-                                        <div 
-                                            className="w-full max-w-[20px] bg-primary/20 group-hover:bg-primary/40 rounded-t-sm transition-all" 
-                                            style={{ height: `${height}%` }}
-                                        ></div>
-                                        <span className="text-[10px] text-slate-400 mt-2 font-medium">{label}</span>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -584,7 +678,7 @@ const Dashboard: React.FC = () => {
             </div>
             
             <footer className="mt-8 text-center text-xs text-slate-400 pb-4 font-khmer">
-                <p>© 2024 QuickBill KH. រក្សាសិទ្ធិគ្រប់យ៉ាង។</p>
+                <p>© 2024 SokBiz. រក្សាសិទ្ធិគ្រប់យ៉ាង។</p>
             </footer>
         </div>
     );

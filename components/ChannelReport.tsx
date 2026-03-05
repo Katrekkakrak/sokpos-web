@@ -340,7 +340,7 @@ const ChannelReport: React.FC = () => {
             {/* Footer Note */}
             <div className="mt-8 flex justify-center">
                 <p className="text-neutral-400 text-xs text-center">
-                    Data last updated: {new Date().toLocaleDateString()} • QuickBill KH Analytics
+                    Data last updated: {new Date().toLocaleDateString()} • SokBiz KH Analytics
                 </p>
             </div>
         </div>

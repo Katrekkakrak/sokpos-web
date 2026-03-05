@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useData, Staff } from '../context/DataContext';
 
 const StaffManagement: React.FC = () => {
-    const { staff, addStaff, updateStaff, deleteStaff, updateStaffStatus, setCurrentView } = useData();
+    const { staff, addStaff, updateStaff, deleteStaff, updateStaffStatus, setCurrentView, hasAccessToFeature } = useData();
     const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [newStaff, setNewStaff] = useState<Partial<Staff>>({
@@ -42,6 +42,15 @@ const StaffManagement: React.FC = () => {
         updateStaffStatus(id, currentStatus === 'Active' ? 'Inactive' : 'Active');
     };
 
+    const handleAddStaff = () => {
+        const staffLimit = hasAccessToFeature('staff');
+        if (typeof staffLimit === 'number' && staff.length >= staffLimit) {
+            alert(`🔒 កញ្ចប់របស់អ្នកអាចបង្កើតបុគ្គលិកបានត្រឹមតែ ${staffLimit} នាក់ប៉ុណ្ណោះ។ សូមដំឡើងកញ្ចប់ (Upgrade) ដើម្បីបន្ថែមបុគ្គលិកបន្ត!`);
+            return;
+        }
+        setIsSlideOverOpen(true);
+    };
+
     return (
         <div className="flex h-full w-full overflow-hidden bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 relative">
             <main className="flex flex-1 flex-col overflow-y-auto">
@@ -61,7 +70,7 @@ const StaffManagement: React.FC = () => {
                             <p className="mt-1 text-slate-500 dark:text-slate-400">Manage your staff members, roles, and system access.</p>
                         </div>
                         <button 
-                            onClick={() => setIsSlideOverOpen(true)}
+                            onClick={handleAddStaff}
                             className="group flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-white shadow-sm transition-all hover:bg-blue-600 active:scale-95"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
@@ -242,7 +251,7 @@ const StaffManagement: React.FC = () => {
                                         value={newStaff.email}
                                         onChange={e => setNewStaff({ ...newStaff, email: e.target.value })}
                                         className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 focus:border-primary focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-800 dark:text-white" 
-                                        placeholder="example@quickbill.kh" 
+                                        placeholder="example@SokBiz.kh" 
                                     />
                                 </div>
                                 {/* Role Selection */}

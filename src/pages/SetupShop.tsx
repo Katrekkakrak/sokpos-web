@@ -39,7 +39,7 @@ const SetupShop: React.FC = () => {
                         <span className="material-icons-round text-3xl">store</span>
                     </div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white font-khmer mb-2">
-                        ស្វាគមន៍មកកាន់ QuickBill
+                        ស្វាគមន៍មកកាន់ SokBiz
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400">
                         សូមកំណត់ឈ្មោះហាងរបស់អ្នកដើម្បីចាប់ផ្តើម

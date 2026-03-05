@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 const OnlineOrdersBoard: React.FC = () => {
-    const { onlineOrders, selectOnlineOrder, setIsCreateOrderModalOpen, updateOrderStatus, customers, setCurrentView, selectedOnlineOrder, setIsShippingLabelModalOpen, products, setProducts, updateProduct, updateOnlineOrder, deleteOnlineOrder, setOrders, orders, deductStockFromOrder, user } = useData();
+    const { onlineOrders, selectOnlineOrder, setIsCreateOrderModalOpen, updateOrderStatus, customers, setCurrentView, selectedOnlineOrder, setIsShippingLabelModalOpen, products, setProducts, updateProduct, updateOnlineOrder, deleteOnlineOrder, setOrders, orders, deductStockFromOrder, user, checkReceiptLimit, userPlan } = useData();
     const [searchTerm, setSearchTerm] = useState('');
     
     // Date Filter State
@@ -40,6 +40,14 @@ const OnlineOrdersBoard: React.FC = () => {
         'សប្តាហ៍នេះ (This Week)',
         'ខែនេះ (This Month)'
     ];
+
+    const handleCreateOrder = () => {
+        if (!checkReceiptLimit('online')) {
+            alert("🔒 គណនី Free អាចទទួលការបញ្ជាទិញអនឡាញបានត្រឹមតែ ១០០ បុងប៉ុណ្ណោះ។ សូមដំឡើងកញ្ចប់ ដើម្បីបន្តទទួលការបញ្ជាទិញគ្មានដែនកំណត់!");
+            return;
+        }
+        setIsCreateOrderModalOpen(true);
+    };
 
     // Filter logic
     const filteredOrders = onlineOrders.filter(order => {
@@ -583,7 +591,7 @@ const OnlineOrdersBoard: React.FC = () => {
                 <div id="receipt-content" style="width: 74mm; padding: 2mm; margin: 0 auto;">
                     <!-- Header -->
                     <div class="header">
-                        <div class="store-name">QuickBill KH</div>
+                        <div class="store-name">SokBiz KH</div>
                         <div class="receipt-title">វិក្កយបត្រកុម្ម៉ង់ទំនិញ</div>
                         <div class="receipt-title">Order Receipt</div>
                     </div>
@@ -1229,11 +1237,11 @@ const OnlineOrdersBoard: React.FC = () => {
 
                     {/* Customer & Source */}
                     <div className="flex items-center gap-2 mb-3 pl-2">
-                        {order.customer.avatar.startsWith('http') ? (
+                        {order.customer.avatar?.startsWith('http') ? (
                             <img alt={order.customer.name} className="w-6 h-6 rounded-full object-cover border border-slate-200 dark:border-slate-600" src={order.customer.avatar} />
                         ) : (
                             <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-[10px] font-bold border border-slate-200 dark:border-slate-600">
-                                {order.customer.name.slice(0, 1)}
+                                {order.customer.name?.slice(0, 1) ?? '?'}
                             </div>
                         )}
                         <div className="flex items-center gap-1.5 overflow-hidden">
@@ -1445,7 +1453,7 @@ const OnlineOrdersBoard: React.FC = () => {
                     </button>
                     {/* Create Button */}
                     <button 
-                        onClick={() => setIsCreateOrderModalOpen(true)}
+                        onClick={handleCreateOrder}
                         className="shrink-0 flex items-center gap-2 bg-primary hover:bg-primary-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shadow-primary/30 ml-2"
                     >
                         <span className="material-icons-outlined text-base">add</span>

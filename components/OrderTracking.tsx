@@ -43,7 +43,7 @@ const OrderTracking: React.FC = () => {
                         <div className="text-primary cursor-pointer" onClick={() => setCurrentView('dashboard')}>
                             <span className="material-symbols-outlined text-3xl">local_shipping</span>
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">QuickBill KH</h1>
+                        <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">SokBiz KH</h1>
                     </div>
                     <nav className="hidden md:flex items-center gap-8">
                         <button onClick={() => setCurrentView('dashboard')} className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-primary transition-colors">Dashboard</button>
@@ -126,7 +126,7 @@ const OrderTracking: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2 mb-2 text-secondary-text"><span className="material-symbols-outlined text-lg">storefront</span><span className="text-xs font-bold uppercase tracking-wider">Sender</span></div>
-                                    <p className="font-semibold text-gray-900 dark:text-white">QuickBill Official Store</p>
+                                    <p className="font-semibold text-gray-900 dark:text-white">SokBiz Official Store</p>
                                     <p className="text-sm text-secondary-text">Phnom Penh, Cambodia</p>
                                 </div>
                                 <div className="flex flex-col gap-1">

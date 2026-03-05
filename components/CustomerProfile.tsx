@@ -618,7 +618,7 @@ const CustomerProfile: React.FC = () => {
                 <div id="receipt-content" style="width: 74mm; padding: 2mm; margin: 0 auto;">
                     <!-- Header -->
                     <div class="header">
-                        <div class="store-name">QuickBill KH</div>
+                        <div class="store-name">SokBiz KH</div>
                         <div class="receipt-title">វិក្កយបត្រកុម្ម៉ង់ទំនិញ</div>
                         <div class="receipt-title">Order Receipt</div>
                     </div>

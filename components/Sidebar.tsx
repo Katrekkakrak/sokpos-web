@@ -39,7 +39,7 @@ const Sidebar: React.FC = () => {
                         <div className="bg-primary/10 p-1.5 rounded-lg">
                             <span className="material-icons-outlined text-primary">point_of_sale</span>
                         </div>
-                        <h1 className="font-bold text-xl tracking-tight text-primary">QuickBill <span className="text-slate-700 dark:text-white font-normal text-lg">KH</span></h1>
+                        <h1 className="font-bold text-xl tracking-tight text-primary">SokBiz <span className="text-slate-700 dark:text-white font-normal text-lg">KH</span></h1>
                     </div>
                     {/* Mobile Close Button */}
                     <button 
@@ -89,6 +89,25 @@ const Sidebar: React.FC = () => {
                         <span className="text-sm font-medium font-khmer">អតិថិជន (CRM)</span>
                     </button>
                     
+                    {/* Omnichannel */}
+                    <button 
+                        onClick={() => setCurrentView('omnichannel')}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'omnichannel' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                        <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">forum</span>
+                        <span className="text-sm font-medium font-khmer">💬 សាររួម (Chat)</span>
+                        <span className="text-[8px] bg-yellow-400 text-black px-1 rounded font-bold ml-auto">PRO</span>
+                    </button>
+
+                    {/* AI Assistant */}
+                    <button 
+                        onClick={() => setCurrentView('assistant')}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-assistant' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                        <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">smart_toy</span>
+                        <span className="text-sm font-medium font-khmer">🤖 ជំនួយការ AI</span>
+                    </button>
+
                     {/* Inventory Group */}
                     <div className="py-2">
                         <button 
@@ -130,9 +149,28 @@ const Sidebar: React.FC = () => {
                     </>
                     )}
 
+                    {/* P&L Manager */}
+                    {!isRestrictedUser && (
+                    <button 
+                        onClick={() => setCurrentView('expense-manager')}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'expense-manager' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                        <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">request_quote</span>
+                        <span className="text-sm font-medium font-khmer">📊 ចំណាយ (P&L)</span>
+                    </button>
+                    )}
+
                     <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
                         <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-display">System</p>
                         
+                        <button
+                            onClick={() => setCurrentView('sok-academy')}
+                            className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-academy' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                        >
+                            <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">school</span>
+                            <span className="text-sm font-medium font-khmer">🎓 មេរៀន (Academy)</span>
+                        </button>
+
                         {/* Settings Group */}
                         {!isRestrictedUser && (
                         <>
@@ -160,6 +198,14 @@ const Sidebar: React.FC = () => {
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">help_outline</span>
                             <span className="text-sm font-medium font-khmer">ជំនួយ (Help)</span>
+                        </button>
+
+                        <button 
+                            onClick={() => setCurrentView('pricing')}
+                            className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'pricing' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                        >
+                            <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">diamond</span>
+                            <span className="text-sm font-medium font-khmer">💎 ដំឡើងកញ្ចប់ (Upgrade)</span>
                         </button>
                     </div>
                 </div>

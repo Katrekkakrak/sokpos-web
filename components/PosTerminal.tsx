@@ -12,6 +12,7 @@ const PosTerminal: React.FC = () => {
     const barcodeInputRef = useRef<HTMLInputElement>(null);
     const barcodeBufferRef = useRef<string>('');
     const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [isEditingTax, setIsEditingTax] = useState<boolean>(false); // សម្រាប់ចុចកែភាគរយ
     const { 
         user, logout, 
         products, categories, setProducts,
@@ -23,7 +24,10 @@ const PosTerminal: React.FC = () => {
         setCurrentView,
         posCustomer,
         setPosCustomer,
-        customers
+        customers,
+        checkReceiptLimit,
+        userPlan,
+        isTaxEnabled, setIsTaxEnabled, taxRate, setTaxRate
     } = useData();
 
     // Helper function to determine if a product is out of stock, considering variants.
@@ -229,8 +233,14 @@ const PosTerminal: React.FC = () => {
             if (barcodeTimeoutRef.current) clearTimeout(barcodeTimeoutRef.current);
         };
     }, [products, addToCart]);
-
+    
     const handleCheckout = async () => {
+        // Check receipt limit for POS
+        if (!checkReceiptLimit('pos')) {
+            alert("🔒 គណនី Free អាចកាត់វិក្កយបត្រ POS បានត្រឹមតែ ៥០ បុងប៉ុណ្ណោះ។ សូមដំឡើងកញ្ចប់ ដើម្បីបន្តការលក់គ្មានដែនកំណត់!");
+            return;
+        }
+
         if (cart.length === 0) return;
         // Simply open payment modal - stock deduction happens after payment confirmation
         setIsPaymentModalOpen(true);
@@ -260,7 +270,7 @@ const PosTerminal: React.FC = () => {
                     </button>
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded bg-primary flex items-center justify-center text-white font-bold text-lg">Q</div>
-                        <h1 className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">QuickBill <span className="text-primary font-khmer font-normal text-sm opacity-80">ខេអេច</span></h1>
+                        <h1 className="font-bold text-xl tracking-tight text-gray-900 dark:text-white">SokBiz <span className="text-primary font-khmer font-normal text-sm opacity-80">ខេអេច</span></h1>
                     </div>
                     <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 mx-2"></div>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
@@ -522,11 +532,53 @@ const PosTerminal: React.FC = () => {
                                 <span className="font-khmer">សរុបរង (Subtotal)</span>
                                 <span className="font-medium text-gray-800 dark:text-gray-200">${cartTotal.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
-                                <span className="font-khmer">ពន្ធ (Tax 10%)</span>
-                                <span className="font-medium text-gray-800 dark:text-gray-200">${taxAmount.toFixed(2)}</span>
+                            
+                            {/* 💡 ជួរគិតពន្ធ (Interactive Tax Row) */}
+                            <div className="flex justify-between items-center text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-khmer">ពន្ធ (Tax)</span>
+                                    
+                                    {/* ប៊ូតុង Toggle បើក/បិទ ពន្ធ */}
+                                    <button
+                                        onClick={() => setIsTaxEnabled(!isTaxEnabled)}
+                                        className={`w-8 h-4 rounded-full relative transition-colors ${isTaxEnabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                    >
+                                        <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${isTaxEnabled ? 'translate-x-4' : ''}`} />
+                                    </button>
+
+                                    {/* ប្រអប់បង្ហាញ និងកែប្រែភាគរយពន្ធ */}
+                                    {isTaxEnabled && (
+                                        isEditingTax ? (
+                                            <input
+                                                type="number"
+                                                value={taxRate}
+                                                onChange={(e) => setTaxRate(Number(e.target.value))}
+                                                onBlur={() => setIsEditingTax(false)}
+                                                onKeyDown={(e) => e.key === 'Enter' && setIsEditingTax(false)}
+                                                autoFocus
+                                                className="w-16 px-1 py-0.5 text-xs text-center border rounded dark:bg-gray-700 dark:border-gray-600 outline-none focus:border-primary text-gray-800 dark:text-white"
+                                                min="0"
+                                                max="100"
+                                            />
+                                        ) : (
+                                            <span
+                                                onClick={() => setIsEditingTax(true)}
+                                                className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors"
+                                                title="ចុចដើម្បីកែប្រែភាគរយពន្ធ"
+                                            >
+                                                {taxRate}% ✎
+                                            </span>
+                                        )
+                                    )}
+                                </div>
+                                
+                                <span className={`font-medium ${isTaxEnabled ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 line-through'}`}>
+                                    ${taxAmount.toFixed(2)}
+                                </span>
                             </div>
+
                             <div className="h-px bg-gray-200 dark:bg-gray-700 my-2"></div>
+                            
                             <div className="flex justify-between items-end">
                                 <div>
                                     <span className="text-gray-900 dark:text-white font-bold text-lg">Total</span>

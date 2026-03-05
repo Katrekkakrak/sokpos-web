@@ -65,7 +65,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         >
                             <span className="material-icons-outlined">menu</span>
                         </button>
-                        <h1 className="font-bold text-lg text-primary">QuickBill KH</h1>
+                        <h1 className="font-bold text-lg text-primary">SokBiz KH</h1>
                     </div>
                     
                     {/* Search */}

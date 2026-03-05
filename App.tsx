@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { DataProvider, useData } from './context/DataContext';
 import { AuthProvider } from './context/AuthContext';
 import Storefront from './src/pages/Storefront';
@@ -62,6 +62,12 @@ import ShopOnboarding from './components/ShopOnboarding';
 import AccountSuspended from './components/AccountSuspended';
 import NotificationCenter from './components/NotificationCenter';
 import NotFound404 from './components/NotFound404';
+import SokAcademy from './src/components/SokAcademy';
+import ExpenseManager from './components/ExpenseManager';
+import Omnichannel from './components/Omnichannel';
+import SokAssistant from './components/SokAssistant';
+import PricingPage from './components/PricingPage';
+
 
 /**
  * POSApp Component
@@ -82,14 +88,33 @@ const POSApp: React.FC = () => {
  * Requires DataProvider context to be available
  */
 const POSAppContent = () => {
-  const { 
-      user, currentView, 
+  const {
+      user, currentView,
+      setCurrentView,
       isPaymentModalOpen, isCreateOrderModalOpen, isShippingSetupModalOpen,
       isAddLeadModalOpen, isDepositModalOpen,
       isSplitBillModalOpen, isHoldOrdersOpen,
       isShippingLabelModalOpen,
       subscription
   } = useData();
+  const location = useLocation();
+
+  // Sync URL path with the internal `currentView` state
+  useEffect(() => {
+    if (location.pathname.startsWith('/academy') && currentView !== 'sok-academy') {
+      setCurrentView('sok-academy');
+    }
+    if (location.pathname.startsWith('/expense') && currentView !== 'expense-manager') {
+      setCurrentView('expense-manager');
+    }
+    if (location.pathname.startsWith('/omnichannel') && currentView !== 'omnichannel') {
+      setCurrentView('omnichannel');
+    }
+    if (location.pathname.startsWith('/assistant') && currentView !== 'assistant') {
+      setCurrentView('assistant');
+    }
+    // This pattern can be expanded for other routes in the future.
+  }, [location.pathname, currentView, setCurrentView]);
 
   // 1. Check for Public/Unauthenticated Routes (Full Screen)
   if (currentView === 'shop-onboarding') return <ShopOnboarding />;
@@ -168,6 +193,11 @@ const POSAppContent = () => {
             {currentView === 'security-settings' && <SecuritySettings />}
             {currentView === 'notification-center' && <NotificationCenter />}
             {currentView === 'account-suspended' && <AccountSuspended />}
+            {currentView === 'sok-academy' && <SokAcademy />}
+            {currentView === 'expense-manager' && <ExpenseManager />}
+            {currentView === 'omnichannel' && <Omnichannel />}
+            {currentView === 'assistant' && <SokAssistant />}
+            {currentView === 'pricing' && <PricingPage />}
         </MainLayout>
 
         {/* Global Modals (Siblings to Layout) */}
@@ -193,6 +223,12 @@ export default function App() {
           <Route path="/store/:shopId/track" element={<TrackOrder />} />
           <Route path="/store/:shopId/history" element={<OrderHistory />} />
           <Route path="/setup-shop" element={<SetupShop />} />
+
+          {/* Route for Academy, which will render inside the main POSApp layout */}
+          <Route path="/academy" element={<POSApp />} />
+
+          {/* Route for Expense Manager, which will render inside the main POSApp layout */}
+          <Route path="/expense" element={<POSApp />} />
 
           {/* Private POS Application Routes - Requires authentication via DataProvider */}
           <Route path="/*" element={<POSApp />} />

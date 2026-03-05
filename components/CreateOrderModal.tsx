@@ -5,7 +5,7 @@ import { CreditCard, Search, X, Plus, Minus, Trash2, User, MapPin, Package, Chec
 import AddLeadModal from './AddLeadModal';
 
 const CreateOrderModal: React.FC = () => {
-    const { setIsCreateOrderModalOpen, products, createOnlineOrder, customers, leads, draftOnlineOrder, setDraftOnlineOrder, shippingZones, editingOrder, setEditingOrder, updateOnlineOrder, prefillOrderData, setPrefillOrderData, user } = useData();
+    const { setIsCreateOrderModalOpen, products, createOnlineOrder, customers, leads, draftOnlineOrder, setDraftOnlineOrder, shippingZones, editingOrder, setEditingOrder, updateOnlineOrder, prefillOrderData, setPrefillOrderData, user, isTaxEnabled, taxRate } = useData();
     
     // --- Local State ---
     // Customer Logic
@@ -155,15 +155,29 @@ const CreateOrderModal: React.FC = () => {
             if (prefillOrderData.items && prefillOrderData.items.length > 0) {
                 const newItems: CartItem[] = [];
                 prefillOrderData.items.forEach((prefillItem: any) => {
-                    const product = products.find(p => p.id === prefillItem.id);
-                    if (product) {
-                        newItems.push({
-                            ...product,
-                            quantity: prefillItem.qty
-                        });
+                    // ✅ AI ផ្ញើ CartItem ពេញ (price, unitId, variantId) → ប្រើផ្ទាល់
+                    if (prefillItem.price !== undefined && prefillItem.quantity !== undefined) {
+                        newItems.push(prefillItem as CartItem);
+                    } else {
+                        // fallback: rebuild ពី product id (CRM path)
+                        const product = products.find(p => p.id === prefillItem.id);
+                        if (product) {
+                            newItems.push({
+                                ...product,
+                                quantity: prefillItem.qty ?? 1
+                            });
+                        }
                     }
                 });
                 setItems(newItems);
+            }
+            // ✅ AI zone prefill
+            if (prefillOrderData.zone) {
+                setSelectedZone(prefillOrderData.zone);
+            }
+            // ✅ AI source prefill
+            if (prefillOrderData.source) {
+                setOrderSource(prefillOrderData.source);
             }
         } else if (!editingOrder) {
             // Reset to defaults when no editing order and no draft
@@ -463,7 +477,9 @@ const CreateOrderModal: React.FC = () => {
     };
 
     const discountAmount = calculateDiscountAmount();
-    const total = Math.max(0, subtotal - discountAmount + (parseFloat(shippingFee) || 0));
+    const taxableAmount = subtotal - (discountAmount || 0);
+    const modalTaxAmount = isTaxEnabled ? taxableAmount * (taxRate / 100) : 0;
+    const total = Math.max(0, taxableAmount + modalTaxAmount + (parseFloat(shippingFee) || 0));
 
     // Submit
     const handleSubmit = () => {
@@ -491,7 +507,9 @@ const CreateOrderModal: React.FC = () => {
             ? (Number(subtotal) * (Number(discountValue) || 0)) / 100 
             : Number(discountValue) || 0;
 
-        const finalTotal = Number(subtotal) - actualDiscountAmount + Number(parseFloat(shippingFee) || 0);
+        const taxableAmountSubmit = Number(subtotal) - actualDiscountAmount;
+        const taxAmountSubmit = isTaxEnabled ? taxableAmountSubmit * (taxRate / 100) : 0;
+        const finalTotal = Math.max(0, taxableAmountSubmit + taxAmountSubmit + Number(parseFloat(shippingFee) || 0));
         const finalDeposit = paymentMethod === 'COD' ? (parseFloat(depositAmount) || 0) : 0;
         
         // Encode deposit into transactionId to bypass context schema limitations
@@ -516,6 +534,7 @@ const CreateOrderModal: React.FC = () => {
                 source: orderSource,
                 transactionId: finalTransactionId,
                 discount: actualDiscountAmount,
+                tax: taxAmountSubmit,
                 total: finalTotal,
                 deposit: finalDeposit,
                 deliveryDate,
@@ -537,7 +556,8 @@ const CreateOrderModal: React.FC = () => {
                 selectedZone,
                 bankSlipImage,
                 safeNotes,
-                finalDeposit
+                finalDeposit,
+                taxAmountSubmit
             );
         }
 
@@ -1248,6 +1268,17 @@ const CreateOrderModal: React.FC = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {isTaxEnabled && (
+                                    <div className="flex justify-between items-center text-sm mt-2">
+                                        <span className="text-gray-500 dark:text-gray-400 font-khmer">
+                                            ពន្ធ (Tax {taxRate}%)
+                                        </span>
+                                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                                            ${modalTaxAmount.toFixed(2)}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

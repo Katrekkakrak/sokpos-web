@@ -69,10 +69,10 @@ const ShopOnboarding: React.FC = () => {
                         <div className="flex justify-between items-start">
                             <div>
                                 <h1 className="text-2xl font-bold font-khmer text-slate-900 dark:text-white leading-relaxed">
-                                    សូមស្វាគមន៍មកកាន់ QuickBill KH
+                                    សូមស្វាគមន៍មកកាន់ SokBiz KH
                                 </h1>
                                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                    Welcome to QuickBill KH - Let's set up your shop.
+                                    Welcome to SokBiz KH - Let's set up your shop.
                                 </p>
                             </div>
                             <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">

@@ -473,7 +473,7 @@ interface DataContextType {
     selectOnlineOrder: (id: string) => void;
     updateOrderStatus: (id: string, status: string) => void;
     // Updated signature for Carrier + Source + TransactionID + Discount + DeliveryDate + Zone + BankSlipImage
-    createOnlineOrder: (customer: CustomerInfo, items: CartItem[], shippingFee: number, paymentMethod: string, carrier?: string, source?: string, transactionId?: string, discount?: number, deliveryDate?: string, zone?: string, bankSlipImage?: string | null) => Promise<void>;
+    createOnlineOrder: (customer: CustomerInfo, items: CartItem[], shippingFee: number, paymentMethod: string, carrier?: string, source?: string, transactionId?: string, discount?: number, deliveryDate?: string, zone?: string, bankSlipImage?: string | null, notes?: string, deposit?: number) => Promise<void>;
     verifyPayment: (id: string, verified: boolean) => void;
     setOrderShipping: (id: string, details: any) => void;
     updateOrderCustomer: (id: string, customer: Partial<CustomerInfo>) => void;
@@ -532,6 +532,12 @@ interface DataContextType {
     // Mobile Stock Taking API (NEW)
     stockAdjustments: StockAdjustment[];
     syncMobileStockTake: (scannedData: { productId: number | string, countedStock: number }[], employeeName: string, reason?: string) => Promise<{ success: boolean; message: string; adjustments: StockAdjustment[] }>;
+
+    // --- Plan & Permissions ---
+    userPlan: 'free' | 'standard' | 'pro';
+    checkReceiptLimit: (orderType: 'pos' | 'online') => boolean;
+    checkProductLimit: (currentProductCount: number) => boolean;
+    hasAccessToFeature: (feature: 'ai' | 'omnichannel' | 'reports' | 'staff') => boolean | number;
 
 
     // Staff
@@ -623,9 +629,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isShippingLabelModalOpen, setIsShippingLabelModalOpen] = useState(false);
 
     const [subscription, setSubscription] = useState({ status: 'Active', plan: 'Pro', expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) });
-    const [shopSettings, setShopSettings] = useState<ShopSettings>({
-        name: 'QuickBill Shop', phone: '012 345 678', email: 'contact@shop.com', address: 'Phnom Penh', logo: '', timezone: '(GMT+07:00) Phnom Penh', currency: 'USD', taxRate: 0
-    });
+    const [shopSettings, setShopSettings] = useState<ShopSettings>({ name: 'SokBiz Shop', phone: '012 345 678', email: 'contact@shop.com', address: 'Phnom Penh', logo: '', timezone: '(GMT+07:00) Phnom Penh', currency: 'USD', taxRate: 0 });
 
     // Products will be populated by real-time Firestore listener
     const [products, setProducts] = useState<Product[]>([]);
@@ -633,6 +637,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All Items');
     const categories = ['All Items', 'Drinks', 'Food', 'Dessert', 'Ice Cream'];
+    
+    // 💡 រៀបចំ State សម្រាប់ពន្ធ (Tax) អោយប្រើបានគ្រប់ផ្ទាំង
+    const [isTaxEnabled, setIsTaxEnabled] = useState<boolean>(true);
+    const [taxRate, setTaxRate] = useState<number>(10);
 
     // Orders will be populated by real-time Firestore listener
     const [orders, setOrders] = useState<Order[]>([]);
@@ -644,6 +652,70 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Mobile Stock Taking - Track Adjustments (Firestore-synced via listener)
     const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([]);
+
+    // --- 1. User Plan State ---
+    const [userPlan, setUserPlan] = useState<'free' | 'standard' | 'pro'>('free');
+
+    // --- 2. Real-time Plan Listener ---
+    useEffect(() => {
+        if (!user?.tenantId) {
+            setUserPlan('free');
+            return;
+        }
+
+        const unsubscribe = onSnapshot(doc(db, 'tenants', user.tenantId), (docSnapshot) => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                setUserPlan((data.plan?.toLowerCase() as 'free' | 'standard' | 'pro') || 'free');
+            }
+        });
+
+        return () => unsubscribe();
+    }, [user?.tenantId]);
+
+    // --- 3. Guard Functions (Access Control) ---
+    const checkReceiptLimit = (orderType: 'pos' | 'online') => {
+        if (userPlan !== 'free') return true;
+        
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        if (orderType === 'pos') {
+            const receiptsThisMonth = orders.filter(o => {
+                const d = new Date(o.date);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            }).length;
+            return receiptsThisMonth < 50;
+        } else {
+            const onlineOrdersThisMonth = onlineOrders.filter(o => {
+                const d = new Date(o.date);
+                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            }).length;
+            return onlineOrdersThisMonth < 100;
+        }
+    };
+
+    const checkProductLimit = (currentProductCount: number) => {
+        if (userPlan !== 'free') return true;
+        return currentProductCount < 50;
+    };
+
+    const hasAccessToFeature = (feature: 'ai' | 'omnichannel' | 'reports' | 'staff'): boolean | number => {
+        switch (feature) {
+            case 'ai':
+                return userPlan === 'standard' || userPlan === 'pro';
+            case 'omnichannel':
+                return userPlan === 'pro';
+            case 'reports':
+                return userPlan === 'standard' || userPlan === 'pro';
+            case 'staff':
+                if (userPlan === 'free') return 1;
+                if (userPlan === 'standard') return 5;
+                return Infinity; // Pro is unlimited
+            default:
+                return false;
+        }
+    };
 
     // POS & Order Draft State
     const [posCustomer, setPosCustomer] = useState<Contact | null>(null);
@@ -866,15 +938,18 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
     const [userSecurity, setUserSecurity] = useState({ twoFactorEnabled: false });
     
     const [notifications, setNotifications] = useState<NotificationItem[]>([
-        { id: 'n1', title: 'New Order', message: 'Order #QB-882910 received.', time: '2 min ago', type: 'info', read: false, dateCategory: 'Today' }
+        { id: 'n1', title: 'New Order', message: 'Order #SB-882910 received.', time: '2 min ago', type: 'info', read: false, dateCategory: 'Today' }
     ]);
     
     const [discounts, setDiscounts] = useState<Discount[]>([]);
 
     // --- Computed ---
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const taxAmount = cartTotal * (shopSettings.taxRate || 0.1); // default 10%
-    const finalTotal = cartTotal + taxAmount;
+    const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const discountAmount = 0; 
+    
+    const taxableAmount = cartTotal - discountAmount;
+    const taxAmount = isTaxEnabled ? taxableAmount * (taxRate / 100) : 0;
+    const finalTotal = taxableAmount + taxAmount;
 
     // --- Real Firebase Authentication Functions ---
     const login = async (email: string, pass: string) => {
@@ -1186,7 +1261,7 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
         if (selectedContact?.id === id) setSelectedContact(prev => prev ? { ...prev, ...data } : null);
     };
 
-    const createOnlineOrder = async (customer: CustomerInfo, items: CartItem[], shippingFee: number, paymentMethod: string, carrier?: string, source?: string, transactionId?: string, discount?: number, deliveryDate?: string, zone?: string, bankSlipImage?: string | null) => {
+    const createOnlineOrder = async (customer: CustomerInfo, items: CartItem[], shippingFee: number, paymentMethod: string, carrier?: string, source?: string, transactionId?: string, discount?: number, deliveryDate?: string, zone?: string, bankSlipImage?: string | null, notes?: string, deposit?: number) => {
         if (currentBranch === 'all') {
             alert("សូមជ្រើសរើសសាខាជាក់លាក់ណាមួយ ដើម្បីបង្កើតទិន្នន័យថ្មី! (Please select a specific branch to create new data!)");
             return;
@@ -1199,43 +1274,47 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
 
         const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         const appliedDiscount = discount || 0;
-        const total = subtotal - appliedDiscount + shippingFee;
-        const orderId = `QB-${Date.now()}`;
+        const taxableAmount = subtotal - (discount || 0);
+        const orderTaxAmount = isTaxEnabled ? taxableAmount * (taxRate / 100) : 0;
+        const finalGrandTotal = taxableAmount + orderTaxAmount + shippingFee;
+        const orderId = `SB-${Date.now()}`;
 
         // Sanitize items array to remove undefined properties which Firestore rejects
         const cleanItems = items.map(item => Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined)));
         
         const newOrder = sanitizeData({
-            id: orderId,
-            customer,
-            date: new Date().toISOString(),
-            status: 'New',
-            paymentStatus: paymentMethod === 'COD' ? 'COD' : 'Pending',
-            total,
-            subtotal,
-            tax: 0,
-            discount: appliedDiscount,
-            shippingFee,
-            items: cleanItems,
-            paymentMethod,
-            shippingCarrier: carrier, 
-            shippingDetails: carrier ? { courier: carrier, trackingNumber: '', fee: shippingFee, zone } : undefined, 
-            elapsedTime: 'Just now',
-            source,
-            transactionId,
-            deliveryDate,
-            bankSlipImage,
-            branchId: currentBranch,
-            tenantId: currentBranch,
-            amountPaid: total,
-            debtAmount: 0,
-            staffId: user.uid,
-            staffName: user.name || user.email || 'Unknown'
-        }, {
-            status: 'New',
-            paymentStatus: paymentMethod === 'COD' ? 'COD' : 'Pending',
-            branchId: currentBranch
-        }) as OnlineOrder;
+    id: orderId,
+    customer,
+    date: new Date().toISOString(),
+    status: 'New',
+    paymentStatus: paymentMethod === 'COD' ? 'COD' : 'Pending',
+    total: finalGrandTotal,
+    subtotal,
+    tax: orderTaxAmount,
+    discount: appliedDiscount,
+    shippingFee,
+    items: cleanItems,
+    paymentMethod,
+    shippingCarrier: carrier ?? null,          // ✅ undefined → null
+    shippingDetails: carrier ? { courier: carrier, trackingNumber: '', fee: shippingFee, zone: zone ?? null } : null,
+    elapsedTime: 'Just now',
+    source: source ?? null,                    // ✅ undefined → null
+    transactionId: transactionId ?? null,      // ✅ undefined → null  ← នេះជា bug!
+    deliveryDate: deliveryDate ?? null,        // ✅ undefined → null
+    bankSlipImage: bankSlipImage ?? null,      // ✅ undefined → null
+    branchId: currentBranch,
+    tenantId: currentBranch,
+    amountPaid: finalGrandTotal,
+    debtAmount: 0,
+    notes: notes ?? '',
+    deposit: deposit ?? 0,
+    staffId: user.uid,
+    staffName: user.name || user.email || 'Unknown'
+}, {
+    status: 'New',
+    paymentStatus: paymentMethod === 'COD' ? 'COD' : 'Pending',
+    branchId: currentBranch
+}) as OnlineOrder;
 
         try {
             await setDoc(doc(db, 'tenants', currentBranch, 'onlineOrders', orderId), newOrder);
@@ -1979,7 +2058,11 @@ const [currentStaff, setCurrentStaff] = useState<Staff | null>(null);
             removeCustomFieldDef, orders, setOrders, deductStockFromOrder, autoReceiptTelegram, setAutoReceiptTelegram, processRefund, discounts, addDiscount, deleteDiscount, tenants,
             updateTenantStatus, renewTenant, noteCategories, setNoteCategories, contactStages, setContactStages,
             posCustomer, setPosCustomer, draftOnlineOrder, setDraftOnlineOrder, prefillOrderData, setPrefillOrderData,
-            stockAdjustments, syncMobileStockTake
+            stockAdjustments, syncMobileStockTake,isTaxEnabled,
+            setIsTaxEnabled,
+            taxRate,
+            setTaxRate,
+            userPlan, checkReceiptLimit, checkProductLimit, hasAccessToFeature
         }}>
             {children}
         </DataContext.Provider>

@@ -98,7 +98,7 @@ const InventoryList: React.FC = () => {
                     <button className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
                         <span className="material-icons">menu</span>
                     </button>
-                    <span className="font-bold text-lg text-slate-900 dark:text-white">QuickBill KH</span>
+                    <span className="font-bold text-lg text-slate-900 dark:text-white">SokBiz KH</span>
                 </div>
                 <div className="bg-primary/10 p-1.5 rounded-full">
                     <span className="material-icons text-primary text-xl">notifications</span>

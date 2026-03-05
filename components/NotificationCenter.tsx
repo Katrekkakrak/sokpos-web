@@ -26,7 +26,7 @@ const NotificationCenter: React.FC = () => {
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-4 text-white cursor-pointer" onClick={() => setCurrentView('dashboard')}>
                         <div className="size-8 text-primary"><span className="material-symbols-outlined !text-[32px]">dataset</span></div>
-                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">QuickBill KH</h2>
+                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">SokBiz KH</h2>
                     </div>
                 </div>
                 <div className="flex flex-1 justify-end gap-6 items-center">
@@ -71,7 +71,7 @@ const NotificationCenter: React.FC = () => {
                                     </span>
                                     <div className="h-px bg-border-dark flex-1"></div>
                                 </div>
-                                {items.map(note => (
+                                {(items as any[]).map((note: any) => (
                                     <div key={note.id} className={`group relative flex gap-4 p-4 rounded-xl border-l-4 border-y border-r border-y-border-dark border-r-border-dark hover:bg-[#202e3b] transition-all cursor-pointer shadow-sm ${note.read ? 'bg-surface-dark/50 border-l-border-dark opacity-80' : 'bg-surface-dark border-l-primary'}`}>
                                         <div className="shrink-0 pt-1">
                                             <div className={`flex items-center justify-center rounded-full size-10 ${

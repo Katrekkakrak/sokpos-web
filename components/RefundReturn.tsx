@@ -77,7 +77,7 @@ const RefundReturn: React.FC = () => {
                         <span className="material-symbols-outlined text-2xl">arrow_back</span>
                     </button>
                     <div>
-                        <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900 dark:text-white">QuickBill KH</h1>
+                        <h1 className="text-xl font-bold leading-tight tracking-tight text-slate-900 dark:text-white">SokBiz KH</h1>
                         <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Refund & Return</p>
                     </div>
                 </div>

@@ -11,7 +11,7 @@ const NotFound404: React.FC = () => {
                     <div className="size-8 rounded bg-primary/20 flex items-center justify-center text-primary">
                         <span className="material-symbols-outlined text-xl">receipt_long</span>
                     </div>
-                    <h2 className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">QuickBill KH</h2>
+                    <h2 className="text-slate-900 dark:text-white text-lg font-bold tracking-tight">SokBiz KH</h2>
                 </div>
                 <div className="flex items-center gap-4">
                     <a className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-colors font-khmer" href="#">ជំនួយ (Help)</a>
@@ -57,7 +57,7 @@ const NotFound404: React.FC = () => {
             
             <footer className="py-6 text-center border-t border-gray-200 dark:border-[#233648] bg-white dark:bg-[#111a22] z-10">
                 <p className="text-sm text-slate-500 dark:text-slate-500 font-khmer">
-                    © 2024 QuickBill KH. រក្សាសិទ្ធិគ្រប់យ៉ាង។
+                    © 2024 SokBiz KH. រក្សាសិទ្ធិគ្រប់យ៉ាង។
                 </p>
             </footer>
         </div>

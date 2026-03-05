@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
 
 const ReceiptHistory: React.FC = () => {
-    const { orders, setCurrentView, autoReceiptTelegram, setAutoReceiptTelegram, shopSettings } = useData();
+    const { orders, setCurrentView, autoReceiptTelegram, setAutoReceiptTelegram, shopSettings, hasAccessToFeature, userPlan } = useData();
     const [selectedReceiptId, setSelectedReceiptId] = useState<string | null>(orders.length > 0 ? orders[0].id : null);
     const [filter, setFilter] = useState('All');
+
+    const canAccess = hasAccessToFeature('reports');
 
     const filteredOrders = orders.filter(o => {
         if (filter === 'All') return true;
@@ -33,7 +35,8 @@ const ReceiptHistory: React.FC = () => {
                 </div>
             </header>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="relative flex-1 overflow-hidden">
+                <div className={`flex flex-1 overflow-hidden h-full ${!canAccess ? 'filter blur-md pointer-events-none select-none opacity-60' : ''}`}>
                 {/* Left Panel: List */}
                 <div className="w-full lg:w-5/12 xl:w-4/12 flex flex-col bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark">
                     <div className="p-4 border-b border-border-light dark:border-border-dark flex flex-col gap-4">
@@ -79,7 +82,7 @@ const ReceiptHistory: React.FC = () => {
                                     ) : (
                                         <div className="w-12 h-12 mb-3 bg-slate-900 rounded-full flex items-center justify-center text-white"><span className="material-symbols-outlined">storefront</span></div>
                                     )}
-                                    <h2 className="text-xl font-bold uppercase tracking-tight mb-1">{shopSettings?.name || 'QuickBill Mart'}</h2>
+                                    <h2 className="text-xl font-bold uppercase tracking-tight mb-1">{shopSettings?.name || 'SokBiz Mart'}</h2>
                                     <p className="text-xs text-slate-500">{shopSettings?.address || 'Phnom Penh, Cambodia'}</p>
                                 </div>
                                 <div className="border-b-2 border-dashed border-slate-300 pb-3 mb-3 text-xs">
@@ -111,6 +114,28 @@ const ReceiptHistory: React.FC = () => {
                         <div className="flex items-center justify-center h-full text-slate-400">Select a receipt to view</div>
                     )}
                 </div>
+            </div>
+
+                {!canAccess && (
+                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/10 dark:bg-slate-900/40">
+                        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl p-8 rounded-2xl shadow-2xl max-w-md w-full text-center border border-slate-200 dark:border-slate-700 animate-in zoom-in duration-300 mx-4">
+                            <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                                <span className="material-icons-outlined text-5xl">lock</span>
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-3 font-khmer">មុខងារត្រូវបានចាក់សោរ</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 font-khmer leading-relaxed">
+                                🔒 របាយការណ៍ស៊ីជម្រៅ គឺសម្រាប់តែអតិថិជនកញ្ចប់ Standard និង Pro ប៉ុណ្ណោះ។
+                            </p>
+                            <button 
+                                onClick={() => setCurrentView('pricing')}
+                                className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 hover:opacity-90 text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-500/30 flex items-center justify-center gap-2 font-khmer text-base"
+                            >
+                                <span className="material-icons-outlined">diamond</span>
+                                ដំឡើងកញ្ចប់ (Upgrade)
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

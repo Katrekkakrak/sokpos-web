@@ -372,8 +372,8 @@ const ShopSettings: React.FC = () => {
                                     <div className="md:col-span-2">
                                         <input 
                                             className="block w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 px-3" 
-                                            id="bakongAccountId" name="bakongAccountId" 
-                                            placeholder="sokpos@acleda ឬ 012345678@aba" type="text" 
+                                            id="bakongAccountId" name="bakongAccountId"
+                                            placeholder="sokbiz@acleda ឬ 012345678@aba" type="text"
                                             value={formData.bakongAccountId || ''} onChange={handleChange}
                                         />
                                     </div>
@@ -388,8 +388,8 @@ const ShopSettings: React.FC = () => {
                                     <div className="md:col-span-2">
                                         <input 
                                             className="block w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 px-3" 
-                                            id="bankAccountName" name="bankAccountName" 
-                                            placeholder="Sok POS" type="text" 
+                                            id="bankAccountName" name="bankAccountName"
+                                            placeholder="SokBiz" type="text"
                                             value={formData.bankAccountName || ''} onChange={handleChange}
                                         />
                                     </div>

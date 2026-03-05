@@ -77,14 +77,14 @@ const Login: React.FC = () => {
                     <div className="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 mb-4 text-white">
                         <span className="material-icons-round text-3xl">storefront</span>
                     </div>
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">QuickBill KH</h2>
+                    <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">SokBiz KH</h2>
                 </div>
 
                 <div className="bg-white dark:bg-slate-800 py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-primary"></div>
                     <div className="mb-8 text-center">
                         <h3 className="text-xl font-khmer font-bold text-slate-800 dark:text-white mb-2">
-                            {isRegistering ? 'ចុះឈ្មោះហាងថ្មី' : 'សូមស្វាគមន៍មកកាន់ QuickBill KH'}
+                            {isRegistering ? 'ចុះឈ្មោះហាងថ្មី' : 'សូមស្វាគមន៍មកកាន់ SokBiz KH'}
                         </h3>
                         <p className="text-sm text-slate-500 dark:text-slate-400">
                             {isRegistering 
@@ -316,7 +316,7 @@ const Login: React.FC = () => {
                 </div>
 
                 <p className="mt-8 text-center text-xs text-slate-400 dark:text-slate-500">
-                    © 2024 QuickBill KH. All rights reserved. <br />
+                    © 2024 SokBiz KH. All rights reserved. <br />
                     <span className="font-khmer">ប្រព័ន្ធគ្រប់គ្រងអាជីវកម្មឈានមុខគេនៅកម្ពុជា</span>
                 </p>
             </div>

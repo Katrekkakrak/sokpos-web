@@ -149,7 +149,7 @@ const BroadcastCenter: React.FC = () => {
                                     <div className="bg-gray-100/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3 shrink-0 z-10 sticky top-0 mt-8">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-sm">QB</div>
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-black dark:text-white">QuickBill KH</span>
+                                            <span className="text-xs font-bold text-black dark:text-white">SokBiz KH</span>
                                             <span className="text-[9px] text-gray-500">{channel} • Today 9:41 AM</span>
                                         </div>
                                     </div>

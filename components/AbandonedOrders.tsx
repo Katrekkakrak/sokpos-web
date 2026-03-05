@@ -14,7 +14,7 @@ const AbandonedOrders: React.FC = () => {
             <header className="w-full bg-white dark:bg-surface-dark border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <button onClick={() => setCurrentView('dashboard')} className="size-9 bg-primary/10 rounded-lg text-primary flex items-center justify-center"><span className="material-symbols-outlined">arrow_back</span></button>
-                    <div><h1 className="text-lg font-bold">QuickBill KH</h1><p className="text-xs text-slate-500">Abandoned Recovery</p></div>
+                    <div><h1 className="text-lg font-bold">SokBiz KH</h1><p className="text-xs text-slate-500">Abandoned Recovery</p></div>
                 </div>
             </header>
 

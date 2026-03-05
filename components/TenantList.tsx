@@ -22,7 +22,7 @@ const TenantList: React.FC = () => {
                     <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-white">
                         <span className="material-symbols-outlined text-xl">receipt_long</span>
                     </div>
-                    <span className="text-lg font-bold text-slate-900 dark:text-white">QuickBill KH</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white">SokBiz KH</span>
                 </div>
                 <div className="flex flex-1 flex-col overflow-y-auto px-3 py-4 gap-1">
                     <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -59,7 +59,7 @@ const TenantList: React.FC = () => {
                         <button className="text-slate-500 hover:text-slate-700">
                             <span className="material-symbols-outlined">menu</span>
                         </button>
-                        <span className="text-lg font-bold text-slate-900 dark:text-white">QuickBill KH</span>
+                        <span className="text-lg font-bold text-slate-900 dark:text-white">SokBiz KH</span>
                     </div>
                     <div className="hidden lg:block">
                         <h1 className="text-xl font-bold text-slate-900 dark:text-white">បញ្ជីឈ្មោះហាង (Tenant Directory)</h1>

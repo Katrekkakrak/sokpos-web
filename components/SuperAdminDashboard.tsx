@@ -44,7 +44,7 @@ const SuperAdminDashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="text-sm font-bold text-slate-900 dark:text-white">QuickBill KH</h1>
+                        <h1 className="text-sm font-bold text-slate-900 dark:text-white">SokBiz KH</h1>
                         <span className="text-xs text-slate-500 dark:text-slate-400">Super Admin</span>
                     </div>
                 </div>
