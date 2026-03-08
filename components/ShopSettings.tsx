@@ -82,6 +82,7 @@ const ShopSettings: React.FC = () => {
             taxRate: Number(formData.taxRate) || 0,
             telegramToken: formData.telegramToken || '',
             telegramChatId: formData.telegramChatId || '',
+            aiTelegramToken: (formData as any).aiTelegramToken || '',
             bakongAccountId: (formData as any).bakongAccountId || '',
             bankAccountName: (formData as any).bankAccountName || '',
             branches: (formData as any).branches || []
@@ -348,6 +349,30 @@ const ShopSettings: React.FC = () => {
                                         placeholder="ឧ. -1234567890123" type="text" 
                                         value={formData.telegramChatId || ''} onChange={handleChange}
                                     />
+                                </div>
+                            </div>
+
+                            <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-200 dark:border-purple-900/30 rounded-lg p-6 mt-8 mb-6">
+                                <div className="flex items-center gap-3 mb-6">
+                                    <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-[28px]">smart_toy</span>
+                                    <h3 className="text-lg font-bold text-text-primary font-khmer">ភ្នាក់ងារ AI (AI Assistant Bot)</h3>
+                                </div>
+                                <p className="text-sm text-text-secondary mb-6 font-khmer">
+                                    បញ្ចូល Token របស់ Bot ថ្មីមួយទៀត សម្រាប់ឲ្យអ្នកបញ្ជាការងារ AI (បង្កើត Order, សួររបាយការណ៍) ផ្ទាល់តាមរយៈ Telegram។
+                                </p>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                                    <div className="md:col-span-1">
+                                        <label className="block text-sm font-semibold text-text-primary font-khmer">AI Bot Token</label>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <input 
+                                            className="block w-full rounded-lg border-border-light dark:border-border-dark bg-background-light dark:bg-background-dark shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5 px-3 font-mono text-xs" 
+                                            id="aiTelegramToken" name="aiTelegramToken" 
+                                            placeholder="ឧ. 987654:XYZ-UVW..." type="password" 
+                                            value={(formData as any).aiTelegramToken || ''} onChange={handleChange}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
 const SokAssistant: React.FC = () => {
     const {
         orders, onlineOrders, products, customers,
         setCurrentView, userPlan,
-        setPrefillOrderData, setIsCreateOrderModalOpen,
         shippingZones,
+        createOnlineOrder
     } = useData();
 
     const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>(() => {
@@ -27,15 +27,6 @@ const SokAssistant: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-    // ============================================================
-    // ✅ SIMPLE: navigate + open empty Modal — user fills in
-    // ============================================================
-    const openOrderModal = () => {
-        setPrefillOrderData(null);
-        setCurrentView('online-orders');
-        setTimeout(() => setIsCreateOrderModalOpen(true), 150);
-    };
 
     // ============================================================
     // Stats
@@ -77,11 +68,7 @@ const SokAssistant: React.FC = () => {
                 return;
             }
 
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
             const stats = getStats();
-            const chatHistory = messages.map(m => `${m.role === 'user' ? 'ថៅកែ' : 'Sok AI'}: ${m.text}`).join('\n');
-
             const productCatalog = products.map(p => ({
                 id: p.id, name: p.name, nameKh: p.nameKh ?? '',
                 basePrice: p.price, stock: p.stock,
@@ -108,44 +95,96 @@ Top: ${stats.topProducts.map(p => `${p.name}(${p.count}ដង)`).join(', ')}
 Products: ${JSON.stringify(productCatalog)}
 Customers: ${JSON.stringify(customerList)}
 Zones: ${JSON.stringify(zoneList)}
-Orders: ${JSON.stringify(recentOrders)}
+Orders: ${JSON.stringify(recentOrders)}`;
 
-=== Actions ===
-បើ user ចង់ ORDER/កម្ម៉ង់ → return JSON:
-\`\`\`json
-{"action":"OPEN_ORDER_MODAL"}
-\`\`\`
-(Modal ទទេនឹងបើក — user បំពេញ + confirm ខ្លួនឯង)
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+                model: 'gemini-2.5-flash-lite',
+                systemInstruction: systemPrompt,
+                tools: [{
+                    functionDeclarations: [{
+                        name: "create_direct_order",
+                        description: "Create a new order directly with items, customer phone, and delivery address.",
+                        parameters: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                items: {
+                                    type: SchemaType.ARRAY,
+                                    items: {
+                                        type: SchemaType.OBJECT,
+                                        properties: {
+                                            name: { type: SchemaType.STRING },
+                                            qty: { type: SchemaType.NUMBER }
+                                        },
+                                        required: ["name", "qty"]
+                                    }
+                                },
+                                customerPhone: { type: SchemaType.STRING },
+                                deliveryAddress: { type: SchemaType.STRING }
+                            },
+                            required: ["items", "customerPhone"]
+                        }
+                    }]
+                }]
+            });
 
-រក customer → JSON:
-\`\`\`json
-{"action":"FIND_CUSTOMER","query":"..."}
-\`\`\`
+            // Ensure the history sent to the API doesn't start with a 'model' role.
+            const historyForApi = messages.map(m => ({
+                role: m.role,
+                parts: [{ text: m.text }]
+            }));
 
-គណនា discount → JSON:
-\`\`\`json
-{"action":"CALC_DISCOUNT","productName":"...","qty":1,"discountPct":10}
-\`\`\`
+            if (historyForApi.length > 0 && historyForApi[0].role === 'model') {
+                historyForApi.shift(); // Remove the initial greeting from the model
+            }
 
-Track order → JSON:
-\`\`\`json
-{"action":"TRACK_ORDER","orderId":"SB-..."}
-\`\`\`
+            const chat = model.startChat({
+                history: historyForApi
+            });
 
-Draft reply → plain text (មិនបាច់ JSON)
+            const result = await chat.sendMessage(userMessage);
+            const response = result.response;
+            let text = response.text();
 
-ថ្លៃដឹក → JSON:
-\`\`\`json
-{"action":"SHIPPING_FEE","destination":"..."}
-\`\`\`
+            // Check for function calls
+            const calls = response.functionCalls();
+            if (calls && calls.length > 0) {
+                const call = calls[0];
+                if (call.name === "create_direct_order") {
+                    const args = call.args as any;
+                    
+                    // Map items from args to actual products
+                    const orderItems = args.items.map((item: any) => {
+                        const product = products.find(p => p.name === item.name);
+                        return product ? { ...product, quantity: item.qty } : null;
+                    }).filter((i: any) => i !== null);
 
-Report/Stock/Summary → plain text
+                    if (orderItems.length > 0) {
+                        // Execute the function
+                        await createOnlineOrder(
+                            { name: 'Sok AI Customer', phone: args.customerPhone, address: args.deliveryAddress || 'N/A', avatar: '' },
+                            orderItems,
+                            0, // shipping fee default
+                            'COD', // payment method default
+                            'J&T Express', // carrier default
+                            'Sok AI' // source
+                        );
 
-ប្រវត្តិ: ${chatHistory}
-សំណួរ: "${userMessage}"`;
-
-            const result = await model.generateContent(systemPrompt);
-            let text = result.response.text();
+                        // Send function response back to model
+                        const functionResponse = {
+                            functionResponse: {
+                                name: "create_direct_order",
+                                response: { status: "SUCCESS", message: `Order created successfully for ${args.customerPhone}` }
+                            }
+                        };
+                        
+                        const finalResult = await chat.sendMessage([functionResponse]);
+                        text = finalResult.response.text();
+                    } else {
+                        text = "បរាជ័យ៖ រកមិនឃើញទំនិញក្នុងស្តុក ឬឈ្មោះទំនិញមិនត្រឹមត្រូវ។";
+                    }
+                }
+            }
 
             const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
             const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : null;
@@ -155,11 +194,7 @@ Report/Stock/Summary → plain text
                     const data = JSON.parse(jsonStr);
 
                     // ✅ CREATE ORDER — Modal ទទេ
-                    if (data.action === 'OPEN_ORDER_MODAL') {
-                        openOrderModal();
-                        text = '📋 Modal បើករួចហើយ!\n\nសូមបំពេញព័ត៌មាន:\n• ជ្រើស Customer\n• Add ទំនិញ\n• ជ្រើស Zone + Carrier\n\nហើយចុច ✅ "Create Order" ដើម្បីបញ្ជាក់!';
-
-                    } else if (data.action === 'FIND_CUSTOMER') {
+                     if (data.action === 'FIND_CUSTOMER') {
                         const q = (data.query ?? '').toLowerCase();
                         const found = customers.filter(c =>
                             c.name.toLowerCase().includes(q) || c.phone.includes(q)
