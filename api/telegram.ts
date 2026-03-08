@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// ១. ភ្ជាប់រន្ធ Firebase Admin (ទម្រង់ថ្មី ធានាអត់គាំង!)
+// ១. ភ្ជាប់រន្ធ Firebase Admin
 if (!getApps().length) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
@@ -76,23 +76,22 @@ export default async function handler(req: any, res: any) {
       return res.status(200).send('OK');
     }
 
-    // ៤. ដាស់ខួរក្បាល Gemini
+    // ៤. ដាស់ខួរក្បាល Gemini (កែទម្រង់ឲ្យត្រូវស្តង់ដារ ១០០%)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", tools: tools });
-    
-    const chat = model.startChat({
-      systemInstruction: `អ្នកគឺជាអ្នកគ្រប់គ្រងហាងដ៏ឆ្លាតវៃ។ ថៅកែឆាតមកអ្នកថា៖ "${text}"។ 
-      - បើគាត់ប្រាប់ឲ្យកត់ Order ហើយមានព័ត៌មានគ្រប់គ្រាន់ (ឈ្មោះអីវ៉ាន់ និងលេខទូរស័ព្ទ/ទីតាំង) សូមហៅមុខងារ 'create_direct_order' ភ្លាម។
-      - បើខ្វះព័ត៌មាន សូមសួរគាត់ត្រឡប់ទៅវិញជាភាសាខ្មែរខ្លីៗសិន។`
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite", 
+      tools: tools,
+      systemInstruction: "អ្នកគឺជាអ្នកគ្រប់គ្រងហាងដ៏ឆ្លាតវៃ។ ពេលថៅកែឆាតបញ្ជាកត់ Order ហើយមានព័ត៌មានគ្រប់គ្រាន់ (ឈ្មោះអីវ៉ាន់ និងលេខទូរស័ព្ទ/ទីតាំង) សូមហៅមុខងារ 'create_direct_order' ភ្លាម។ បើខ្វះព័ត៌មាន សូមសួរគាត់ត្រឡប់ទៅវិញជាភាសាខ្មែរខ្លីៗសិន។"
     });
-
-    const result = await chat.sendMessage(text);
+    
+    // បាញ់សារទៅឲ្យ AI គិត
+    const result = await model.generateContent(text);
     const response = result.response;
     
     let aiReply = '';
     try { aiReply = response.text(); } catch (e) {}
 
-    // ៥. ឆែកមើល Function Call
+    // ៥. ឆែកមើល Function Call កាត់ស្តុក
     const functionCalls = response.functionCalls();
     
     if (functionCalls && functionCalls.length > 0) {
