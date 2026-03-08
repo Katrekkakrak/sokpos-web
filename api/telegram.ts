@@ -1,12 +1,13 @@
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import * as admin from 'firebase-admin';
+import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// ១. ភ្ជាប់រន្ធ Firebase Admin
-if (!admin.apps.length) {
+// ១. ភ្ជាប់រន្ធ Firebase Admin (ទម្រង់ថ្មី ធានាអត់គាំង!)
+if (!getApps().length) {
   try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    initializeApp({
+      credential: cert(serviceAccount)
     });
     console.log("Firebase Admin Initialized Successfully!");
   } catch (error) {
@@ -14,9 +15,9 @@ if (!admin.apps.length) {
   }
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
-// ២. រៀបចំអាវុធ Function Calling (Tool) ដោយប្រើ SchemaType របស់ Google
+// ២. រៀបចំអាវុធ Function Calling
 const tools: any = [
   {
     functionDeclarations: [
@@ -97,11 +98,9 @@ export default async function handler(req: any, res: any) {
     if (functionCalls && functionCalls.length > 0) {
       const call = functionCalls[0];
       if (call.name === "create_direct_order") {
-        
-        // បន្លំភ្នែក TypeScript ទីនេះ (as any) ដើម្បីកុំអោយវាលោត Error
         const args = call.args as any; 
         
-        // ៦. បង្កើត Order
+        // ៦. បង្កើត Order រួច Save
         const newOrder = {
           id: `SB-TG-${Date.now()}`,
           customerName: "Telegram Customer",
@@ -110,7 +109,7 @@ export default async function handler(req: any, res: any) {
           status: 'new',
           paymentStatus: 'unpaid',
           total: 0,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           source: 'telegram_ai'
         };
 
