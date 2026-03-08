@@ -1,60 +1,141 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import * as admin from 'firebase-admin';
+
+// ១. ភ្ជាប់រន្ធ Firebase Admin
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log("Firebase Admin Initialized Successfully!");
+  } catch (error) {
+    console.error("Firebase Admin Init Error:", error);
+  }
+}
+
+const db = admin.firestore();
+
+// ២. រៀបចំអាវុធ Function Calling (Tool) ដោយប្រើ SchemaType របស់ Google
+const tools: any = [
+  {
+    functionDeclarations: [
+      {
+        name: "create_direct_order",
+        description: "បង្កើតការកម្មង់ទិញថ្មី (Create Order) ពេលថៅកែបញ្ជាទិញទំនិញ ភ្ជាប់ជាមួយលេខទូរស័ព្ទ ឬទីតាំង។",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            items: {
+              type: SchemaType.ARRAY,
+              description: "បញ្ជីទំនិញដែលថៅកែបញ្ជា (ឧ. កូកា ២កំប៉ុង)",
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  name: { type: SchemaType.STRING, description: "ឈ្មោះទំនិញ" },
+                  qty: { type: SchemaType.NUMBER, description: "ចំនួន" }
+                },
+                required: ["name", "qty"]
+              }
+            },
+            customerInfo: {
+              type: SchemaType.STRING,
+              description: "ព័ត៌មានភ្ញៀវ (លេខទូរស័ព្ទ ឬទីតាំង)"
+            }
+          },
+          required: ["items", "customerInfo"]
+        }
+      }
+    ]
+  }
+];
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(200).send('SokBiz Telegram AI Webhook is running! 🚀');
-  }
+  if (req.method !== 'POST') return res.status(200).send('Webhook is running 🚀');
 
   try {
     const update = req.body;
     const botToken = req.query.token;
 
-    if (!botToken) {
-      return res.status(400).send('Missing Bot Token');
+    if (!update?.message?.text || !botToken) return res.status(200).send('OK');
+
+    const chatId = update.message.chat.id;
+    const text = update.message.text;
+
+    // ៣. ស្វែងរកហាងរបស់ថៅកែ
+    const settingsSnapshot = await db.collectionGroup('settings').where('aiTelegramToken', '==', botToken).limit(1).get();
+    
+    let tenantId = '';
+    if (!settingsSnapshot.empty) {
+      tenantId = settingsSnapshot.docs[0].ref.parent.parent?.id || '';
     }
 
-    // បើមានគេឆាតចូល...
-    if (update && update.message && update.message.text) {
-      const chatId = update.message.chat.id;
-      const text = update.message.text;
+    if (!tenantId) {
+      await sendTelegramMessage(botToken, chatId, "❌ សុំទោសមេបញ្ជាការ! ខ្ញុំរកមិនឃើញហាងដែលភ្ជាប់ជាមួយ Bot នេះទេ។");
+      return res.status(200).send('OK');
+    }
 
-      console.log(`ទទួលសារពី ChatID ${chatId}: ${text}`);
+    // ៤. ដាស់ខួរក្បាល Gemini
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite", tools: tools });
+    
+    const chat = model.startChat({
+      systemInstruction: `អ្នកគឺជាអ្នកគ្រប់គ្រងហាងដ៏ឆ្លាតវៃ។ ថៅកែឆាតមកអ្នកថា៖ "${text}"។ 
+      - បើគាត់ប្រាប់ឲ្យកត់ Order ហើយមានព័ត៌មានគ្រប់គ្រាន់ (ឈ្មោះអីវ៉ាន់ និងលេខទូរស័ព្ទ/ទីតាំង) សូមហៅមុខងារ 'create_direct_order' ភ្លាម។
+      - បើខ្វះព័ត៌មាន សូមសួរគាត់ត្រឡប់ទៅវិញជាភាសាខ្មែរខ្លីៗសិន។`
+    });
 
-      // ១. ដាស់ខួរក្បាល Gemini (ត្រូវប្រាកដថាបងមានអថេរ GEMINI_API_KEY ក្នុង Vercel)
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-      // យើងប្រើស៊េរី 2.5 flash-lite ឲ្យលឿនដូចរន្ទះ!
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" }); 
+    const result = await chat.sendMessage(text);
+    const response = result.response;
+    
+    let aiReply = '';
+    try { aiReply = response.text(); } catch (e) {}
 
-      // ២. បញ្ជាប្រាប់តួនាទី AI (Prompt Engineering)
-      const prompt = `អ្នកគឺជាជំនួយការ AI ដ៏ឆ្លាតវៃរបស់ប្រព័ន្ធ SokBiz POS។ ថៅកែបានឆាតមកអ្នកថា៖ "${text}"។ សូមឆ្លើយតបទៅកាន់គាត់វិញជាភាសាខ្មែរឲ្យបានគួរសម ខ្លីខ្លឹម និងរហ័សរហួន។ បើគាត់សួរនាំអីវ៉ាន់ ប្រាប់គាត់ថាអ្នកកំពុងត្រៀមភ្ជាប់ប្រព័ន្ធ Database សិន។`;
+    // ៥. ឆែកមើល Function Call
+    const functionCalls = response.functionCalls();
+    
+    if (functionCalls && functionCalls.length > 0) {
+      const call = functionCalls[0];
+      if (call.name === "create_direct_order") {
+        
+        // បន្លំភ្នែក TypeScript ទីនេះ (as any) ដើម្បីកុំអោយវាលោត Error
+        const args = call.args as any; 
+        
+        // ៦. បង្កើត Order
+        const newOrder = {
+          id: `SB-TG-${Date.now()}`,
+          customerName: "Telegram Customer",
+          customerPhone: args.customerInfo || "N/A",
+          items: args.items || [],
+          status: 'new',
+          paymentStatus: 'unpaid',
+          total: 0,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          source: 'telegram_ai'
+        };
 
-      let aiReply = '';
-
-      try {
-        // ៣. ឲ្យ AI គិតរកចម្លើយ
-        const result = await model.generateContent(prompt);
-        aiReply = result.response.text();
-      } catch (aiError) {
-        console.error("Gemini Error:", aiError);
-        aiReply = "សុំទោសមេបញ្ជាការ! ខួរក្បាល AI របស់ខ្ញុំកំពុងរវល់ ឬ API Key មិនទាន់ត្រូវ សូមពិនិត្យមើល Vercel ឡើងវិញ!";
+        await db.collection('tenants').doc(tenantId).collection('orders').doc(newOrder.id).set(newOrder);
+        
+        const itemNames = (args.items || []).map((i: any) => `${i.name} (${i.qty})`).join(', ');
+        aiReply = `✅ រួចរាល់ហើយមេបញ្ជាការ! ខ្ញុំបានកត់ត្រាការកម្មង់ [${itemNames}] ចូលផ្ទាំង Order Board ជោគជ័យហើយ! 🚀`;
       }
-
-      // ៤. បាញ់ចម្លើយ AI នោះត្រឡប់ទៅ Telegram វិញ
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: aiReply
-        })
-      });
+    } else if (!aiReply) {
+      aiReply = "សុំទោសមេបញ្ជាការ ខ្ញុំកំពុងវិភាគទិន្នន័យ សូមរង់ចាំបន្តិច...";
     }
 
-    // ត្រូវតែប្រាប់ Telegram វិញថា "ទទួលបានហើយ" ជានិច្ច
+    await sendTelegramMessage(botToken, chatId, aiReply);
     return res.status(200).send('OK');
 
   } catch (error) {
     console.error('Webhook Error:', error);
-    return res.status(500).send('Internal Server Error');
+    return res.status(500).send('Error');
   }
+}
+
+async function sendTelegramMessage(token: string, chatId: string, text: string) {
+  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text: text })
+  });
 }
