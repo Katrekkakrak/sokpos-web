@@ -94,19 +94,63 @@ export default async function handler(req: any, res: any) {
       if (call.name === "create_direct_order") {
         const args = call.args as any; 
         
+        // ៦. បង្កើត Order ឲ្យត្រូវស្តង់ដារ onlineOrders ១០០%
         const newOrder = {
           id: `SB-TG-${Date.now()}`,
-          customerName: "Telegram Customer",
-          customerPhone: args.customerInfo || "N/A",
-          items: args.items || [],
-          status: 'new',
-          paymentStatus: 'unpaid',
+          amountPaid: 0,
+          bankSlipImage: null,
+          barcode: "",
+          batches: [],
+          branchId: tenantId, 
+          cost: 0,
+          customer: {
+            address: "N/A",
+            avatar: "",
+            name: "Telegram Customer",
+            phone: args.customerInfo || "N/A"
+          },
+          date: new Date().toISOString(),
+          debtAmount: 0,
+          deliveryDate: null,
+          deposit: 0,
+          description: "កម្មង់ពី Telegram AI",
+          discount: 0,
+          elapsedTime: "Just now",
+          image: "",
+          items: (args.items || []).map((i: any) => ({
+             id: Date.now().toString() + Math.random().toString(36).substring(7),
+             name: i.name,
+             qty: i.qty,
+             price: 0,
+             amount: 0,
+             cost: 0,
+             image: ""
+          })),
+          method: "",
+          nameKh: "",
+          notes: "",
+          paymentMethod: "COD",
+          paymentStatus: "COD",
+          shippingCarrier: "J&T Express",
+          shippingDetails: { courier: "J&T Express", fee: 0 },
+          shippingFee: 0,
+          sku: "",
+          source: "Sok AI",
+          staffId: tenantId,
+          staffName: "SokPos Bot",
+          status: "New", 
+          subtotal: 0,
+          tax: 0,
+          tenantId: tenantId,
           total: 0,
-          createdAt: FieldValue.serverTimestamp(),
-          source: 'telegram_ai'
+          transactionId: null,
+          units: [],
+          variants: [],
+          createdAt: FieldValue.serverTimestamp()
         };
 
-        await db.collection('tenants').doc(tenantId).collection('orders').doc(newOrder.id).set(newOrder);
+        // ប្តូរពី orders ទៅ onlineOrders វិញ!
+        await db.collection('tenants').doc(tenantId).collection('onlineOrders').doc(newOrder.id).set(newOrder);
         
         const itemNames = (args.items || []).map((i: any) => `${i.name} (${i.qty})`).join(', ');
         aiReply = `✅ រួចរាល់ហើយមេបញ្ជាការ! ខ្ញុំបានកត់ត្រាការកម្មង់ [${itemNames}] ចូលផ្ទាំង Order Board ជោគជ័យហើយ! 🚀`;
