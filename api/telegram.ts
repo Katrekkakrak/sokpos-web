@@ -1,42 +1,56 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export default async function handler(req: any, res: any) {
-  // ១. បើគេចូលមើលតាម Browser ធម្មតា
   if (req.method !== 'POST') {
     return res.status(200).send('SokBiz Telegram AI Webhook is running! 🚀');
   }
 
   try {
     const update = req.body;
-    
-    // ២. ចាប់យក Token ពី URL (ឧ. /api/telegram?token=123:ABC)
     const botToken = req.query.token;
 
     if (!botToken) {
-      return res.status(400).send('Missing Bot Token in URL');
+      return res.status(400).send('Missing Bot Token');
     }
 
-    // ៣. ឆែកមើលថាតើមានសារផ្ញើចូលមែនឬអត់
+    // បើមានគេឆាតចូល...
     if (update && update.message && update.message.text) {
       const chatId = update.message.chat.id;
       const text = update.message.text;
 
       console.log(`ទទួលសារពី ChatID ${chatId}: ${text}`);
 
-      // ៤. [ជំហានបឋម] កូដតបទៅ Telegram វិញភ្លាមៗ (Echo)
-      // (នៅជំហានបន្ទាប់ យើងនឹងយក text នេះទៅឲ្យ Gemini គិតសិន ចាំតប)
-      const replyMessage = `🤖 សួស្តីមេបញ្ជាការ! ខ្ញុំបានទទួលបញ្ជារបស់អ្នកហើយ៖ "${text}"`;
-      
+      // ១. ដាស់ខួរក្បាល Gemini (ត្រូវប្រាកដថាបងមានអថេរ GEMINI_API_KEY ក្នុង Vercel)
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      // យើងប្រើស៊េរី 2.5 flash-lite ឲ្យលឿនដូចរន្ទះ!
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" }); 
+
+      // ២. បញ្ជាប្រាប់តួនាទី AI (Prompt Engineering)
+      const prompt = `អ្នកគឺជាជំនួយការ AI ដ៏ឆ្លាតវៃរបស់ប្រព័ន្ធ SokBiz POS។ ថៅកែបានឆាតមកអ្នកថា៖ "${text}"។ សូមឆ្លើយតបទៅកាន់គាត់វិញជាភាសាខ្មែរឲ្យបានគួរសម ខ្លីខ្លឹម និងរហ័សរហួន។ បើគាត់សួរនាំអីវ៉ាន់ ប្រាប់គាត់ថាអ្នកកំពុងត្រៀមភ្ជាប់ប្រព័ន្ធ Database សិន។`;
+
+      let aiReply = '';
+
+      try {
+        // ៣. ឲ្យ AI គិតរកចម្លើយ
+        const result = await model.generateContent(prompt);
+        aiReply = result.response.text();
+      } catch (aiError) {
+        console.error("Gemini Error:", aiError);
+        aiReply = "សុំទោសមេបញ្ជាការ! ខួរក្បាល AI របស់ខ្ញុំកំពុងរវល់ ឬ API Key មិនទាន់ត្រូវ សូមពិនិត្យមើល Vercel ឡើងវិញ!";
+      }
+
+      // ៤. បាញ់ចម្លើយ AI នោះត្រឡប់ទៅ Telegram វិញ
       await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
-          text: replyMessage
+          text: aiReply
         })
       });
     }
 
-    // ៥. ត្រូវតែប្រាប់ Telegram វិញថា "ទទួលបានហើយ (200 OK)" ជានិច្ច
-    // បើមិនអញ្ចឹងទេ Telegram នឹងផ្ញើសារដដែលៗមកយើងរហូត!
+    // ត្រូវតែប្រាប់ Telegram វិញថា "ទទួលបានហើយ" ជានិច្ច
     return res.status(200).send('OK');
 
   } catch (error) {
