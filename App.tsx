@@ -67,6 +67,7 @@ import ExpenseManager from './components/ExpenseManager';
 import Omnichannel from './components/Omnichannel';
 import SokAssistant from './components/SokAssistant';
 import PricingPage from './components/PricingPage';
+import SokNotes from './components/SokNotes';
 
 
 /**
@@ -198,6 +199,7 @@ const POSAppContent = () => {
             {currentView === 'omnichannel' && <Omnichannel />}
             {currentView === 'assistant' && <SokAssistant />}
             {currentView === 'pricing' && <PricingPage />}
+            {currentView === 'sok-notes' && <SokNotes />}
         </MainLayout>
 
         {/* Global Modals (Siblings to Layout) */}

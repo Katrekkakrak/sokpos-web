@@ -6,7 +6,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../src/config/firebase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { sendNoteReminderAlert } from '../utils/telegramAlert';
 
 // ─────────────────────────────────────────────
 // Types
@@ -120,13 +119,8 @@ const SokNotes: React.FC = () => {
     const [autoSummary, setAutoSummary]       = useState('');
     const [autoSummaryLoading, setAutoSummaryLoading] = useState(false);
 
-    // ── Phase 4: Reminder state ──
-    const [reminderSending, setReminderSending]   = useState(false);
-    const [reminderSentMsg, setReminderSentMsg]   = useState('');
-
     const contentRef  = useRef<HTMLTextAreaElement>(null);
     const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const reminderCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ── Firestore listener ──
     useEffect(() => {
@@ -141,54 +135,6 @@ const SokNotes: React.FC = () => {
         });
         return () => unsub();
     }, [tenantId]);
-
-    // ── Phase 4: Check reminders every hour ──
-    useEffect(() => {
-        const checkReminders = async () => {
-            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-            const dueNotes = notes.filter(n =>
-                n.reminder &&
-                n.reminder <= today &&
-                n.title !== 'Note ថ្មី'
-            );
-            for (const note of dueNotes) {
-                await sendNoteReminderAlert(
-                    note.title,
-                    note.content,
-                    note.reminder!,
-                    note.linkedCustomerName,
-                    note.linkedProductName,
-                    note.linkedOrderId
-                );
-            }
-        };
-
-        if (notes.length > 0) {
-            checkReminders(); // Check on load
-            reminderCheckRef.current = setInterval(checkReminders, 60 * 60 * 1000); // Every hour
-        }
-        return () => {
-            if (reminderCheckRef.current) clearInterval(reminderCheckRef.current);
-        };
-    }, [notes]);
-
-    // ── Phase 4: Manual send reminder ──
-    const handleSendReminder = async () => {
-        if (!selectedNote || !editReminder) return;
-        setReminderSending(true);
-        setReminderSentMsg('');
-        const ok = await sendNoteReminderAlert(
-            editTitle,
-            editContent,
-            editReminder,
-            editLinkedCustomer.name,
-            editLinkedProduct.name,
-            editLinkedOrder.id
-        );
-        setReminderSentMsg(ok ? '✅ ផ្ញើ Telegram ជោគជ័យ!' : '❌ មិនបានផ្ញើ — check Telegram settings');
-        setReminderSending(false);
-        setTimeout(() => setReminderSentMsg(''), 4000);
-    };
 
     // ── Auto-save ──
     useEffect(() => {
@@ -547,25 +493,6 @@ Command: "${inlineQuery}"
                             <span className="material-icons-outlined text-slate-500" style={{ fontSize: 14 }}>alarm</span>
                             <input type="date" value={editReminder} onChange={e => setEditReminder(e.target.value)}
                                 className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-300 outline-none" />
-                            {editReminder && (
-                                <button
-                                    onClick={handleSendReminder}
-                                    disabled={reminderSending}
-                                    title="ផ្ញើ reminder ទៅ Telegram ឥឡូវ"
-                                    className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all disabled:opacity-40 font-khmer"
-                                >
-                                    {reminderSending
-                                        ? <span className="material-icons-outlined animate-spin" style={{ fontSize: 13 }}>refresh</span>
-                                        : <span className="material-icons-outlined" style={{ fontSize: 13 }}>send</span>
-                                    }
-                                    TG
-                                </button>
-                            )}
-                            {reminderSentMsg && (
-                                <span className="text-[10px] font-khmer px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 whitespace-nowrap">
-                                    {reminderSentMsg}
-                                </span>
-                            )}
                         </div>
 
                         <div className="flex-1" />
@@ -893,37 +820,6 @@ Command: "${inlineQuery}"
                                         ))}
                                     </div>
                                 </div>
-
-                                {/* Phase 4: Reminder status card */}
-                                {editReminder && (
-                                    <div className="mx-3 mt-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-yellow-400 text-sm">🔔</span>
-                                            <span className="text-[11px] font-bold text-yellow-400 font-khmer">Reminder</span>
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 font-mono mb-2">{editReminder}</div>
-                                        <button
-                                            onClick={handleSendReminder}
-                                            disabled={reminderSending}
-                                            className="w-full py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold hover:bg-blue-600/30 transition-all disabled:opacity-40 flex items-center justify-center gap-1 font-khmer"
-                                        >
-                                            {reminderSending ? (
-                                                <>
-                                                    <span className="material-icons-outlined animate-spin" style={{ fontSize: 12 }}>refresh</span>
-                                                    កំពុងផ្ញើ...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="material-icons-outlined" style={{ fontSize: 12 }}>send</span>
-                                                    ផ្ញើ Reminder → Telegram
-                                                </>
-                                            )}
-                                        </button>
-                                        {reminderSentMsg && (
-                                            <div className="mt-1.5 text-[10px] text-center font-khmer text-slate-400">{reminderSentMsg}</div>
-                                        )}
-                                    </div>
-                                )}
 
                                 <div className="flex-1 overflow-y-auto p-3">
                                     {aiLoading ? (

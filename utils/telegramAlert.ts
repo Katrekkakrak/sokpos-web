@@ -110,3 +110,76 @@ export const sendReceiptAlert = async (order: any) => {
         return false;
     }
 };
+
+// ─────────────────────────────────────────────
+// Phase 4: Sok Notes Reminder Alert
+// ─────────────────────────────────────────────
+export const sendNoteReminderAlert = async (
+    noteTitle: string,
+    noteContent: string,
+    reminderDate: string,
+    linkedCustomerName?: string,
+    linkedProductName?: string,
+    linkedOrderId?: string
+): Promise<boolean> => {
+    try {
+        if (!auth.currentUser?.uid) {
+            console.warn('⚠️ User not authenticated. Skipping note reminder.');
+            return false;
+        }
+
+        const settingsRef = doc(db, 'tenants', auth.currentUser.uid, 'settings', 'shopSettings');
+        const settingsSnap = await getDoc(settingsRef);
+
+        let telegramToken = "";
+        let chatId = "";
+
+        if (settingsSnap.exists()) {
+            const data = settingsSnap.data();
+            telegramToken = data.telegramToken || "";
+            chatId = data.telegramChatId || "";
+        }
+
+        if (!telegramToken || !chatId) {
+            console.warn('⚠️ Telegram credentials not found. Skipping note reminder.');
+            return false;
+        }
+
+        // Build linked data lines
+        let linkedSection = '';
+        if (linkedCustomerName) linkedSection += `\n👥 <b>Customer:</b> ${linkedCustomerName}`;
+        if (linkedProductName)  linkedSection += `\n📦 <b>Product:</b> ${linkedProductName}`;
+        if (linkedOrderId)      linkedSection += `\n🧾 <b>Order:</b> #${linkedOrderId.slice(-6).toUpperCase()}`;
+
+        // Note content preview (first 150 chars)
+        const preview = noteContent?.trim().slice(0, 150) || '';
+        const previewText = preview
+            ? `\n\n📝 <i>${preview}${(noteContent?.length || 0) > 150 ? '...' : ''}</i>`
+            : '';
+
+        const text =
+`🔔 <b>ការរំឭក Sok Notes!</b>
+
+📌 <b>${noteTitle}</b>
+📅 <b>ថ្ងៃ:</b> ${reminderDate}${linkedSection}${previewText}
+
+<i>បើក SokBiz → Sok Notes ដើម្បីមើលលម្អិត ✏️</i>`;
+
+        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                parse_mode: 'HTML'
+            })
+        });
+
+        if (!response.ok) throw new Error(`Telegram API error: ${response.status}`);
+        console.log("✅ Note reminder sent to Telegram!");
+        return true;
+    } catch (error) {
+        console.error("❌ Failed to send note reminder:", error);
+        return false;
+    }
+};

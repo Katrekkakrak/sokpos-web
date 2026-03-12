@@ -102,10 +102,19 @@ const Sidebar: React.FC = () => {
                     {/* AI Assistant */}
                     <button 
                         onClick={() => setCurrentView('assistant')}
-                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-assistant' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'assistant' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">smart_toy</span>
                         <span className="text-sm font-medium font-khmer">🤖 ជំនួយការ AI</span>
+                    </button>
+
+                    {/* Sok Notes */}
+                    <button
+                        onClick={() => setCurrentView('sok-notes')}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-notes' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                    >
+                        <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">edit_note</span>
+                        <span className="text-sm font-medium font-khmer">📝 Sok Notes</span>
                     </button>
 
                     {/* Inventory Group */}
