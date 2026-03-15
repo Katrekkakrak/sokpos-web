@@ -106,6 +106,9 @@ const SokNotes: React.FC = () => {
     const [aiLoading, setAiLoading]           = useState(false);
     const [showAiPanel, setShowAiPanel]       = useState(true);
 
+    // ── Mobile tab state ──
+    const [mobileTab, setMobileTab] = useState<'sidebar'|'list'|'editor'|'ai'>('list');
+
     // ── Phase 2A: /ai inline popup ──
     const [inlinePopup, setInlinePopup]       = useState(false);
     const [inlineQuery, setInlineQuery]       = useState('');
@@ -232,6 +235,7 @@ const SokNotes: React.FC = () => {
 
     const openNote = useCallback((note: SokNote) => {
         setSelectedNote(note);
+        setMobileTab('editor');
         setEditTitle(note.title);
         setEditContent(note.content);
         setEditCategory(note.category);
@@ -493,10 +497,37 @@ Command: "${inlineQuery}"
     // RENDER
     // ─────────────────────────────────────────────
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-slate-950 text-slate-100 overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-950 text-slate-100 overflow-hidden">
+
+            {/* ══ MOBILE TAB BAR ══ */}
+            <div className="flex lg:hidden border-b border-slate-800 bg-slate-900 flex-shrink-0">
+                {([
+                    { id: 'sidebar', icon: '📋', label: 'ប្រភេទ' },
+                    { id: 'list',    icon: '📝', label: 'Notes' },
+                    { id: 'editor',  icon: '✏️',  label: 'Editor' },
+                    { id: 'ai',      icon: '🤖', label: 'AI' },
+                ] as { id: 'sidebar'|'list'|'editor'|'ai'; icon: string; label: string }[]).map(tab => (
+                    <button key={tab.id} onClick={() => {
+                        setMobileTab(tab.id);
+                        if (tab.id === 'editor' && !selectedNote) setMobileTab('list');
+                        if (tab.id === 'ai') setShowAiPanel(true);
+                    }}
+                        className={"flex-1 flex flex-col items-center justify-center py-2 text-[10px] font-khmer transition-all " + (
+                            mobileTab === tab.id
+                                ? "text-indigo-400 border-b-2 border-indigo-500 bg-indigo-500/10"
+                                : "text-slate-500 hover:text-slate-300"
+                        )}>
+                        <span className="text-base leading-none mb-0.5">{tab.icon}</span>
+                        <span>{tab.label}</span>
+                    </button>
+                ))}
+            </div>
+
+            {/* ══ DESKTOP + MOBILE CONTENT ══ */}
+            <div className="flex flex-1 overflow-hidden">
 
             {/* ══ SIDEBAR ══ */}
-            <div className="w-52 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0">
+            <div className={"w-52 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 " + (mobileTab === 'sidebar' ? "flex w-full lg:w-52" : "hidden lg:flex")}>
                 <div className="p-4 border-b border-slate-800">
                     <div className="flex items-center gap-2 mb-3">
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm">✏️</div>
@@ -562,7 +593,7 @@ Command: "${inlineQuery}"
             </div>
 
             {/* ══ NOTE LIST ══ */}
-            <div className="w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col flex-shrink-0">
+            <div className={"w-64 bg-slate-900/50 border-r border-slate-800 flex flex-col flex-shrink-0 " + (mobileTab === 'list' ? "flex w-full lg:w-64" : "hidden lg:flex")}>
                 <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                     <div className="text-sm font-semibold font-khmer">
                         {CATEGORIES.find(c => c.id === activeCategory)?.icon}{' '}
@@ -601,7 +632,7 @@ Command: "${inlineQuery}"
 
             {/* ══ EDITOR ══ */}
             {isEditing && selectedNote ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
+                <div className={"flex-1 flex flex-col overflow-hidden " + (mobileTab === 'editor' ? "flex" : "hidden lg:flex")}>
 
                     {/* Toolbar */}
                     <div className="px-5 py-2 border-b border-slate-800 bg-slate-900 flex items-center gap-2 flex-shrink-0 flex-wrap">
@@ -942,117 +973,6 @@ Command: "${inlineQuery}"
                                 <span className="text-indigo-500">✨ /ai command ready</span>
                             </div>
                         </div>
-
-                        {/* ══ AI PANEL ══ */}
-                        {showAiPanel && (
-                            <div className="w-64 border-l border-slate-800 bg-slate-900 flex flex-col flex-shrink-0">
-                                <div className="p-3 border-b border-slate-800 flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs">🤖</div>
-                                    <div>
-                                        <div className="text-xs font-bold font-khmer">Sok AI</div>
-                                        <div className="text-[10px] text-slate-500 font-khmer">Note Assistant</div>
-                                    </div>
-                                </div>
-
-                                <div className="p-3 border-b border-slate-800">
-                                    <div className="text-[10px] uppercase tracking-widest text-slate-600 mb-2">Quick Commands</div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {[
-                                            { label: 'សង្ខេប', cmd: 'សង្ខេប note នេះ' },
-                                            { label: 'Tasks', cmd: 'Create task list' },
-                                            { label: 'Improve', cmd: 'Improve the writing' },
-                                            { label: 'EN', cmd: 'Translate to English' },
-                                            { label: 'Email', cmd: 'Draft professional email' },
-                                        ].map(({ label, cmd }) => (
-                                            <button key={label} onClick={() => setAiInput(cmd)}
-                                                className="text-[10px] px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:border-indigo-500/40 hover:text-indigo-400 transition-all font-khmer">
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Phase 4: Reminder status card */}
-                                {editReminder && (
-                                    <div className="mx-3 mt-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-yellow-400 text-sm">🔔</span>
-                                            <span className="text-[11px] font-bold text-yellow-400 font-khmer">Reminder</span>
-                                        </div>
-                                        <div className="text-[11px] text-slate-400 font-mono mb-2">{editReminder}</div>
-                                        <button
-                                            onClick={handleSendReminder}
-                                            disabled={reminderSending}
-                                            className="w-full py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold hover:bg-blue-600/30 transition-all disabled:opacity-40 flex items-center justify-center gap-1 font-khmer"
-                                        >
-                                            {reminderSending ? (
-                                                <>
-                                                    <span className="material-icons-outlined animate-spin" style={{ fontSize: 12 }}>refresh</span>
-                                                    កំពុងផ្ញើ...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="material-icons-outlined" style={{ fontSize: 12 }}>send</span>
-                                                    ផ្ញើ Reminder → Telegram
-                                                </>
-                                            )}
-                                        </button>
-                                        {reminderSentMsg && (
-                                            <div className="mt-1.5 text-[10px] text-center font-khmer text-slate-400">{reminderSentMsg}</div>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div className="flex-1 overflow-y-auto p-3">
-                                    {aiLoading ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
-                                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:0.15s]" />
-                                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.3s]" />
-                                        </div>
-                                    ) : aiResponse ? (
-                                        <div className="text-xs text-slate-300 leading-6 whitespace-pre-wrap bg-slate-800/50 rounded-xl p-3 border border-slate-700 font-khmer">
-                                            {aiResponse}
-                                            <div className="mt-2 flex gap-1">
-                                                <button onClick={() => { setEditContent(c => c + '\n\n' + aiResponse); setAiResponse(''); }}
-                                                    className="text-[10px] px-2 py-1 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 transition-colors font-khmer">
-                                                    + Insert
-                                                </button>
-                                                <button onClick={() => setAiResponse('')}
-                                                    className="text-[10px] px-2 py-1 rounded-lg bg-slate-700 text-slate-400 border border-slate-600 hover:bg-slate-600 transition-colors">
-                                                    ✕ Clear
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="text-[11px] text-slate-600 leading-6 font-khmer">
-                                            💡 សួរ AI អំពី note:<br />
-                                            • "សង្ខេប note នេះ"<br />
-                                            • "Create task list"<br />
-                                            • "Draft email"<br />
-                                            • "Translate to English"<br /><br />
-                                            <span className="text-indigo-500/60 font-mono text-[10px]">
-                                                ឬ វាយ /ai [command] ក្នុង editor
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="p-3 border-t border-slate-800">
-                                    <div className="text-[10px] text-indigo-500 mb-1.5 font-khmer">✨ ASK AI</div>
-                                    <div className="flex gap-2">
-                                        <input value={aiInput} onChange={e => setAiInput(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiAsk()}
-                                            placeholder="ឧ. 'សង្ខេប', 'tasks'..."
-                                            className="flex-1 text-xs bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 outline-none placeholder-slate-600 focus:border-indigo-500/50 font-khmer" />
-                                        <button onClick={handleAiAsk} disabled={aiLoading || !aiInput.trim()}
-                                            className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-500 disabled:opacity-40 transition-all flex-shrink-0">
-                                            <span className="material-icons-outlined" style={{ fontSize: 14 }}>send</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
             ) : (
@@ -1068,6 +988,118 @@ Command: "${inlineQuery}"
                     </div>
                 </div>
             )}
+
+            {/* ══ AI PANEL ══ */}
+            {showAiPanel && (
+                <div className={"border-l border-slate-800 bg-slate-900 flex flex-col flex-shrink-0 " + (mobileTab === 'ai' ? "flex w-full lg:w-64" : "hidden lg:flex lg:w-64")}>
+                    <div className="p-3 border-b border-slate-800 flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs">🤖</div>
+                        <div>
+                            <div className="text-xs font-bold font-khmer">Sok AI</div>
+                            <div className="text-[10px] text-slate-500 font-khmer">Note Assistant</div>
+                        </div>
+                    </div>
+
+                    <div className="p-3 border-b border-slate-800">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-600 mb-2">Quick Commands</div>
+                        <div className="flex flex-wrap gap-1">
+                            {[
+                                { label: 'សង្ខេប', cmd: 'សង្ខេប note នេះ' },
+                                { label: 'Tasks', cmd: 'Create task list' },
+                                { label: 'Improve', cmd: 'Improve the writing' },
+                                { label: 'EN', cmd: 'Translate to English' },
+                                { label: 'Email', cmd: 'Draft professional email' },
+                            ].map(({ label, cmd }) => (
+                                <button key={label} onClick={() => setAiInput(cmd)}
+                                    className="text-[10px] px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:border-indigo-500/40 hover:text-indigo-400 transition-all font-khmer">
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Phase 4: Reminder status card */}
+                    {editReminder && (
+                        <div className="mx-3 mt-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-yellow-400 text-sm">🔔</span>
+                                <span className="text-[11px] font-bold text-yellow-400 font-khmer">Reminder</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mb-2">{editReminder}</div>
+                            <button
+                                onClick={handleSendReminder}
+                                disabled={reminderSending}
+                                className="w-full py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold hover:bg-blue-600/30 transition-all disabled:opacity-40 flex items-center justify-center gap-1 font-khmer"
+                            >
+                                {reminderSending ? (
+                                    <>
+                                        <span className="material-icons-outlined animate-spin" style={{ fontSize: 12 }}>refresh</span>
+                                        កំពុងផ្ញើ...
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="material-icons-outlined" style={{ fontSize: 12 }}>send</span>
+                                        ផ្ញើ Reminder → Telegram
+                                    </>
+                                )}
+                            </button>
+                            {reminderSentMsg && (
+                                <div className="mt-1.5 text-[10px] text-center font-khmer text-slate-400">{reminderSentMsg}</div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="flex-1 overflow-y-auto p-3">
+                        {aiLoading ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" />
+                                <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:0.15s]" />
+                                <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.3s]" />
+                            </div>
+                        ) : aiResponse ? (
+                            <div className="text-xs text-slate-300 leading-6 whitespace-pre-wrap bg-slate-800/50 rounded-xl p-3 border border-slate-700 font-khmer">
+                                {aiResponse}
+                                <div className="mt-2 flex gap-1">
+                                    <button onClick={() => { setEditContent(c => c + '\n\n' + aiResponse); setAiResponse(''); }}
+                                        className="text-[10px] px-2 py-1 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 transition-colors font-khmer">
+                                        + Insert
+                                    </button>
+                                    <button onClick={() => setAiResponse('')}
+                                        className="text-[10px] px-2 py-1 rounded-lg bg-slate-700 text-slate-400 border border-slate-600 hover:bg-slate-600 transition-colors">
+                                        ✕ Clear
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-[11px] text-slate-600 leading-6 font-khmer">
+                                💡 សួរ AI អំពី note:<br />
+                                • "សង្ខេប note នេះ"<br />
+                                • "Create task list"<br />
+                                • "Draft email"<br />
+                                • "Translate to English"<br /><br />
+                                <span className="text-indigo-500/60 font-mono text-[10px]">
+                                    ឬ វាយ /ai [command] ក្នុង editor
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-3 border-t border-slate-800">
+                        <div className="text-[10px] text-indigo-500 mb-1.5 font-khmer">✨ ASK AI</div>
+                        <div className="flex gap-2">
+                            <input value={aiInput} onChange={e => setAiInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleAiAsk()}
+                                placeholder="ឧ. 'សង្ខេប', 'tasks'..."
+                                className="flex-1 text-xs bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 outline-none placeholder-slate-600 focus:border-indigo-500/50 font-khmer" />
+                            <button onClick={handleAiAsk} disabled={aiLoading || !aiInput.trim()}
+                                className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-500 disabled:opacity-40 transition-all flex-shrink-0">
+                                <span className="material-icons-outlined" style={{ fontSize: 14 }}>send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            </div>
 
             {/* ══ Phase 5: AI Digest Modal ══ */}
             {showDigest && (
@@ -1195,7 +1227,12 @@ const NoteCard: React.FC<{
     onClick: () => void; onPin: (e: React.MouseEvent) => void;
     onDelete: () => void; formatDate: (ts: any) => string;
 }> = ({ note, isActive, onClick, onPin, onDelete, formatDate }) => {
-    const cat = CATEGORIES.find(c => c.id === note.category);
+    
+    // បំពេញ id និង color បន្ថែម ដើម្បីបំពេញចិត្តរចនាសម្ព័ន្ធរបស់ TypeScript
+    const cat = CATEGORIES.find(c => c.id === note.category) || { id: 'other', label: 'ផ្សេងៗ', icon: '📋', color: 'text-slate-400' };
+    
+    const catColor = CAT_COLORS[note.category as string] || 'bg-slate-800 text-slate-400 border-slate-700';
+
     return (
         <div onClick={onClick}
             className={`p-3 rounded-xl mb-1 cursor-pointer transition-all group border ${
@@ -1216,8 +1253,8 @@ const NoteCard: React.FC<{
                 {note.content || 'Empty note...'}
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-khmer ${CAT_COLORS[note.category]}`}>
-                    {cat?.icon} {cat?.label}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-khmer ${catColor}`}>
+                    {cat.icon} {cat.label}
                 </span>
                 {note.isPinned && <span className="text-[10px]">📌</span>}
                 {note.reminder && <span className="text-[10px] text-yellow-500" title={note.reminder}>🔔</span>}
