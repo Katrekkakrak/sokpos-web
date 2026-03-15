@@ -1390,7 +1390,17 @@ const OnlineOrdersBoard: React.FC = () => {
                         <span className="text-slate-800 dark:text-slate-100 font-medium">Online Orders</span>
                     </div>
                     <div className="hidden md:block h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-                    <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Order Board</h1>
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 hidden sm:flex">
+                            <span className="material-icons-outlined text-[20px]">shopping_cart_checkout</span>
+                        </div>
+                        <div className="hidden sm:block h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1 rounded-full"></div>
+                        <div className="flex flex-col justify-center">
+                            <h1 className="text-base font-bold text-primary tracking-tight leading-none">Online Order Board</h1>
+                            <div className="h-px w-full bg-slate-200 dark:bg-slate-700 mt-1 mb-1 rounded-full"></div>
+                            <span className="text-[11px] text-slate-800 dark:text-slate-200 font-semibold font-khmer leading-none">ផ្ទាំងកុម្ម៉ង់អនឡាញ</span>
+                        </div>
+                    </div>
                 </div>
                 <div className="flex flex-nowrap overflow-x-auto md:overflow-x-visible items-center gap-3 w-full md:w-auto px-4 md:px-0 pb-2 md:pb-0">
                     {/* Search */}

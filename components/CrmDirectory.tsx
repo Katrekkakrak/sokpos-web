@@ -410,14 +410,16 @@ const CrmDirectory: React.FC = () => {
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative font-display">
             {/* Header */}
-            <header className="flex-shrink-0 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between gap-2 z-10">
-                <div className="flex flex-col flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-khmer mb-1">
+            <header className="flex-shrink-0 min-h-[64px] py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-6 flex items-center justify-between gap-2 z-10">
+                <div className="flex flex-col flex-1 min-w-0 justify-center">
+                    <div className="flex items-center gap-1 md:gap-2 text-[10px] md:text-xs text-slate-500 font-khmer mb-0.5 md:mb-1">
                         <span className="hover:text-primary cursor-pointer" onClick={() => setCurrentView('dashboard')}>ទំព័រដើម</span>
                         <ChevronRight size={10} />
                         <span className="text-slate-800 dark:text-white font-medium">បញ្ជីទំនាក់ទំនង</span>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white font-khmer md:text-2xl truncate">បញ្ជីទំនាក់ទំនង (Contacts Directory)</h2>
+                    <h2 className="text-base md:text-2xl font-bold text-slate-900 dark:text-white font-khmer leading-tight">
+                        បញ្ជីទំនាក់ទំនងអតិថិជន <span className="block md:inline text-[11px] md:text-xl text-primary font-bold mt-0.5 md:mt-0">(CRM Directory)</span>
+                    </h2>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                     <button className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -557,8 +559,8 @@ const CrmDirectory: React.FC = () => {
                 </div>
                 
                 {/* Filters */}
-                <div className="flex gap-3 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">
-                    <div className="relative min-w-[160px]">
+                <div className="flex flex-nowrap gap-3 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 custom-scrollbar">
+                    <div className="relative min-w-[160px] shrink-0">
                         <select 
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
@@ -576,7 +578,7 @@ const CrmDirectory: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="relative min-w-[160px]">
+                    <div className="relative min-w-[160px] shrink-0">
                         <select 
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -597,7 +599,7 @@ const CrmDirectory: React.FC = () => {
                     {/* Manage Stages Button */}
                     <button 
                         onClick={() => setIsManageStagesOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+                        className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
                         title="គ្រប់គ្រងស្ថានភាព (Manage Stages)"
                     >
                         <Settings2 size={16} className="text-slate-400" />
