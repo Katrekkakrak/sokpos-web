@@ -497,7 +497,7 @@ Command: "${inlineQuery}"
     // RENDER
     // ─────────────────────────────────────────────
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-950 text-slate-100 overflow-hidden">
+        <div className="flex flex-col h-[calc(100dvh-64px)] bg-slate-950 text-slate-100 overflow-hidden">
 
             {/* ══ MOBILE TAB BAR ══ */}
             <div className="flex lg:hidden border-b border-slate-800 bg-slate-900 flex-shrink-0">
