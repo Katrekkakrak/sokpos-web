@@ -139,7 +139,7 @@ const PredictiveAnalytics: React.FC = () => {
                 <div className="flex items-center justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white font-khmer">
-                            🔮 ការព្យាករណ៍ && វិश្ provinces (Predictive Analytics)
+                            🔮 ការព្យាករណ៍ && វិស្តាវិទ្យា provinces (Predictive Analytics)
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-khmer">
                             AI-powered sales forecasting & inventory recommendations for next 30 days

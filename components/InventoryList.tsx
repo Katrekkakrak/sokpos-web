@@ -92,19 +92,6 @@ const InventoryList: React.FC = () => {
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
-            {/* Mobile Header */}
-            <header className="lg:hidden h-16 bg-white dark:bg-[#1a2634] border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4">
-                <div className="flex items-center gap-2">
-                    <button className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
-                        <span className="material-icons">menu</span>
-                    </button>
-                    <span className="font-bold text-lg text-slate-900 dark:text-white">SokBiz KH</span>
-                </div>
-                <div className="bg-primary/10 p-1.5 rounded-full">
-                    <span className="material-icons text-primary text-xl">notifications</span>
-                </div>
-            </header>
-
             {/* Main Scrollable Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
                 <div className="max-w-7xl mx-auto flex flex-col gap-6">
@@ -197,33 +184,33 @@ const InventoryList: React.FC = () => {
                                 type="text"
                             />
                         </div>
-                        <div className="flex gap-4 w-full md:w-auto">
-                            <div className="relative min-w-[180px] w-full md:w-auto flex items-center">
+                        <div className="flex gap-3 w-full md:w-auto">
+                            <div className="relative flex-1 min-w-0 md:min-w-[180px] flex items-center">
                                 <select 
                                     value={filterCategory}
                                     onChange={(e) => setFilterCategory(e.target.value)}
-                                    className="w-full appearance-none pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent focus:outline-none font-khmer text-slate-700 dark:text-slate-200 cursor-pointer"
+                                    className="w-full appearance-none pl-2 sm:pl-4 pr-7 sm:pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-primary focus:border-transparent focus:outline-none font-khmer text-slate-700 dark:text-slate-200 cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap"
                                 >
                                     <option value="">គ្រប់ប្រភេទ (All Categories)</option>
                                     <option value="drinks">ភេសជ្ជៈ (Drinks)</option>
                                     <option value="food">អាហារ (Food)</option>
-                                    <option value="electronics">គ្រឿងអេឡិចត្រូនិច (Electronics)</option>
+                                    <option value="electronics">អេឡិចត្រូនិច (Electronics)</option>
                                     <option value="clothing">សម្លៀកបំពាក់ (Clothing)</option>
                                 </select>
-                                <span className="material-icons absolute right-3 text-slate-400 pointer-events-none text-xl">keyboard_arrow_down</span>
+                                <span className="material-icons absolute right-2 sm:right-3 text-slate-400 pointer-events-none text-[18px] sm:text-xl">keyboard_arrow_down</span>
                             </div>
-                            <div className="relative min-w-[180px] w-full md:w-auto flex items-center">
+                            <div className="relative flex-1 min-w-0 md:min-w-[180px] flex items-center">
                                 <select 
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
-                                    className="w-full appearance-none pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent focus:outline-none font-khmer text-slate-700 dark:text-slate-200 cursor-pointer"
+                                    className="w-full appearance-none pl-2 sm:pl-4 pr-7 sm:pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-primary focus:border-transparent focus:outline-none font-khmer text-slate-700 dark:text-slate-200 cursor-pointer text-ellipsis overflow-hidden whitespace-nowrap"
                                 >
                                     <option value="">គ្រប់ស្ថានភាព (All Status)</option>
                                     <option value="instock">មានស្តុក (In Stock)</option>
-                                    <option value="lowstock">ជិតអស់ស្តុក (Low Stock)</option>
-                                    <option value="outstock">អស់ស្តុក (Out of Stock)</option>
+                                    <option value="lowstock">ជិតអស់ស្តុក (Low)</option>
+                                    <option value="outstock">អស់ស្តុក (Out)</option>
                                 </select>
-                                <span className="material-icons absolute right-3 text-slate-400 pointer-events-none text-xl">filter_list</span>
+                                <span className="material-icons absolute right-2 sm:right-3 text-slate-400 pointer-events-none text-[18px] sm:text-xl">filter_list</span>
                             </div>
                         </div>
                     </div>
