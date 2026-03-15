@@ -63,7 +63,7 @@ import AccountSuspended from './components/AccountSuspended';
 import NotificationCenter from './components/NotificationCenter';
 import NotFound404 from './components/NotFound404';
 import SokAcademy from './src/components/SokAcademy';
-import ExpenseManager from './components/ExpenseManager';
+import ProfitLoss from './components/ProfitLoss';
 import Omnichannel from './components/Omnichannel';
 import SokAssistant from './components/SokAssistant';
 import PricingPage from './components/PricingPage';
@@ -195,7 +195,7 @@ const POSAppContent = () => {
             {currentView === 'notification-center' && <NotificationCenter />}
             {currentView === 'account-suspended' && <AccountSuspended />}
             {currentView === 'sok-academy' && <SokAcademy />}
-            {currentView === 'expense-manager' && <ExpenseManager />}
+            {currentView === 'profit-loss' && <ProfitLoss />}
             {currentView === 'omnichannel' && <Omnichannel />}
             {currentView === 'assistant' && <SokAssistant />}
             {currentView === 'pricing' && <PricingPage />}

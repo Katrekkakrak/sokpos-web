@@ -16,25 +16,32 @@ const Sidebar: React.FC = () => {
     const isOnlineSalesLead = user?.role === 'online_sales_lead';
     const isRestrictedUser = isOnlineSales || isOnlineSalesLead;
 
+    // 🛠️ អាប់ដេតថ្មី: ពេលចុច Menu នីមួយៗ ត្រូវដូរ Page ផង និងបិទ Sidebar វិញអូតូផង
+    const handleNavigation = (view: string) => {
+        setCurrentView(view);
+        setIsSidebarOpen(false); // បិទ Sidebar ភ្លាមៗពេលចុចរើសរួច (សម្រាប់ Mobile)
+    };
+
     return (
         <>
             {/* Backdrop Overlay for Mobile */}
             {isSidebarOpen && (
                 <div 
-                    className="fixed inset-0 bg-black/50 z-20 lg:hidden backdrop-blur-sm transition-opacity"
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm transition-opacity"
                     onClick={() => setIsSidebarOpen(false)}
                 ></div>
             )}
 
             {/* Sidebar Container */}
+            {/* 🛠️ កែ z-30 ទៅ z-50 ឲ្យលោតលើគេបង្អស់ពេលបើកលើ Mobile */}
             <aside className={`
-                fixed inset-y-0 left-0 z-30 w-64 bg-surface-light dark:bg-surface-dark border-r border-slate-200 dark:border-slate-700 
+                fixed inset-y-0 left-0 z-50 w-64 bg-surface-light dark:bg-surface-dark border-r border-slate-200 dark:border-slate-700 
                 flex flex-col flex-shrink-0 transition-transform duration-300 ease-in-out
-                ${isSidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'} 
-                lg:static lg:translate-x-0 lg:shadow-none
+                ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'} 
+                lg:static lg:translate-x-0 lg:shadow-none lg:z-30
             `}>
                 {/* Logo Area */}
-                <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
+                <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
                     <div className="flex items-center gap-2">
                         <div className="bg-primary/10 p-1.5 rounded-lg">
                             <span className="material-icons-outlined text-primary">point_of_sale</span>
@@ -44,18 +51,20 @@ const Sidebar: React.FC = () => {
                     {/* Mobile Close Button */}
                     <button 
                         onClick={() => setIsSidebarOpen(false)} 
-                        className="lg:hidden text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                        className="lg:hidden text-slate-400 hover:text-red-500 transition-colors p-1"
                     >
-                        <span className="material-icons-outlined">close</span>
+                        <span className="material-icons-outlined text-2xl">close</span>
                     </button>
                 </div>
 
                 {/* Navigation Links */}
-                <div className="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1">
+                {/* 🛠️ បន្ថែម pb-6 ឲ្យរអិល (Scroll) ផុតបាតខាងក្រោម */}
+                <div className="flex-1 overflow-y-auto custom-scroll py-4 px-3 space-y-1 pb-6">
                     <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-display">Overview</p>
                     
+                    {/* 🛠️ ប្តូរពី setCurrentView ទៅជា handleNavigation ទាំងអស់ */}
                     <button 
-                        onClick={() => setCurrentView('dashboard')}
+                        onClick={() => handleNavigation('dashboard')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'dashboard' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px]">dashboard</span>
@@ -64,7 +73,7 @@ const Sidebar: React.FC = () => {
 
                     {!isOnlineSales && (
                     <button 
-                        onClick={() => setCurrentView('pos')}
+                        onClick={() => handleNavigation('pos')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'pos' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">storefront</span>
@@ -73,7 +82,7 @@ const Sidebar: React.FC = () => {
                     )}
                     
                     <button 
-                        onClick={() => setCurrentView('online-orders')}
+                        onClick={() => handleNavigation('online-orders')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'online-orders' || currentView === 'order-details' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">shopping_cart_checkout</span>
@@ -82,7 +91,7 @@ const Sidebar: React.FC = () => {
 
                     {/* CRM */}
                     <button 
-                        onClick={() => setCurrentView('crm-directory')}
+                        onClick={() => handleNavigation('crm-directory')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'crm-directory' || currentView === 'customer-profile' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">people</span>
@@ -91,7 +100,7 @@ const Sidebar: React.FC = () => {
                     
                     {/* Omnichannel */}
                     <button 
-                        onClick={() => setCurrentView('omnichannel')}
+                        onClick={() => handleNavigation('omnichannel')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'omnichannel' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">forum</span>
@@ -101,7 +110,7 @@ const Sidebar: React.FC = () => {
 
                     {/* AI Assistant */}
                     <button 
-                        onClick={() => setCurrentView('assistant')}
+                        onClick={() => handleNavigation('assistant')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'assistant' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">smart_toy</span>
@@ -110,7 +119,7 @@ const Sidebar: React.FC = () => {
 
                     {/* Sok Notes */}
                     <button
-                        onClick={() => setCurrentView('sok-notes')}
+                        onClick={() => handleNavigation('sok-notes')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-notes' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">edit_note</span>
@@ -120,7 +129,7 @@ const Sidebar: React.FC = () => {
                     {/* Inventory Group */}
                     <div className="py-2">
                         <button 
-                            onClick={() => setCurrentView('inventory-list')}
+                            onClick={() => handleNavigation('inventory-list')}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${isInventoryActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">inventory_2</span>
@@ -130,10 +139,10 @@ const Sidebar: React.FC = () => {
                         {/* Inventory Submenu */}
                         {isInventoryActive && (
                             <div className="ml-9 border-l-2 border-slate-200 dark:border-slate-700 pl-3 mt-1 flex flex-col gap-1">
-                                <button onClick={() => setCurrentView('inventory-list')} className={`text-left py-1.5 text-sm ${currentView === 'inventory-list' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បញ្ជីទំនិញ (List)</button>
-                                <button onClick={() => setCurrentView('product-form')} className={`text-left py-1.5 text-sm ${currentView === 'product-form' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បន្ថែមថ្មី (Add New)</button>
-                                <button onClick={() => setCurrentView('stock-adjustment')} className={`text-left py-1.5 text-sm ${currentView === 'stock-adjustment' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>កែសម្រួលស្តុក (Adjust)</button>
-                                <button onClick={() => setCurrentView('barcode-generator')} className={`text-left py-1.5 text-sm ${currentView === 'barcode-generator' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>Barcode</button>
+                                <button onClick={() => handleNavigation('inventory-list')} className={`text-left py-1.5 text-sm ${currentView === 'inventory-list' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បញ្ជីទំនិញ (List)</button>
+                                <button onClick={() => handleNavigation('product-form')} className={`text-left py-1.5 text-sm ${currentView === 'product-form' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បន្ថែមថ្មី (Add New)</button>
+                                <button onClick={() => handleNavigation('stock-adjustment')} className={`text-left py-1.5 text-sm ${currentView === 'stock-adjustment' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>កែសម្រួលស្តុក (Adjust)</button>
+                                <button onClick={() => handleNavigation('barcode-generator')} className={`text-left py-1.5 text-sm ${currentView === 'barcode-generator' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>Barcode</button>
                             </div>
                         )}
                     </div>
@@ -141,7 +150,7 @@ const Sidebar: React.FC = () => {
                     {!isOnlineSales && (
                     <>
                     <button 
-                        onClick={() => setCurrentView('receipt-history')}
+                        onClick={() => handleNavigation('receipt-history')}
                         className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${isAnalyticsActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px]">receipt_long</span>
@@ -151,8 +160,8 @@ const Sidebar: React.FC = () => {
                     {/* Analytics Submenu */}
                     {isAnalyticsActive && (
                         <div className="ml-9 border-l-2 border-slate-200 dark:border-slate-700 pl-3 mt-1 flex flex-col gap-1">
-                            <button onClick={() => setCurrentView('receipt-history')} className={`text-left py-1.5 text-sm ${currentView === 'receipt-history' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>ប្រវត្តិរបាយ (History)</button>
-                            <button onClick={() => setCurrentView('predictive-analytics')} className={`text-left py-1.5 text-sm ${currentView === 'predictive-analytics' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>📊 ព្យាករណ៍ (Forecast)</button>
+                            <button onClick={() => handleNavigation('receipt-history')} className={`text-left py-1.5 text-sm ${currentView === 'receipt-history' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>ប្រវត្តិរបាយ (History)</button>
+                            <button onClick={() => handleNavigation('predictive-analytics')} className={`text-left py-1.5 text-sm ${currentView === 'predictive-analytics' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>📊 ព្យាករណ៍ (Forecast)</button>
                         </div>
                     )}
                     </>
@@ -161,8 +170,8 @@ const Sidebar: React.FC = () => {
                     {/* P&L Manager */}
                     {!isRestrictedUser && (
                     <button 
-                        onClick={() => setCurrentView('expense-manager')}
-                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'expense-manager' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
+                        onClick={() => handleNavigation('profit-loss')}
+                        className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'profit-loss' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                     >
                         <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">request_quote</span>
                         <span className="text-sm font-medium font-khmer">📊 ចំណាយ (P&L)</span>
@@ -173,7 +182,7 @@ const Sidebar: React.FC = () => {
                         <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 font-display">System</p>
                         
                         <button
-                            onClick={() => setCurrentView('sok-academy')}
+                            onClick={() => handleNavigation('sok-academy')}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'sok-academy' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">school</span>
@@ -184,7 +193,7 @@ const Sidebar: React.FC = () => {
                         {!isRestrictedUser && (
                         <>
                         <button 
-                            onClick={() => setCurrentView('shop-settings')}
+                            onClick={() => handleNavigation('shop-settings')}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white rounded-lg group transition-colors ${isSettingsActive ? 'bg-primary/10 text-primary' : ''}`}
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">settings</span>
@@ -193,9 +202,9 @@ const Sidebar: React.FC = () => {
 
                         {isSettingsActive && (
                             <div className="ml-9 border-l-2 border-slate-200 dark:border-slate-700 pl-3 mt-1 flex flex-col gap-1">
-                                <button onClick={() => setCurrentView('shop-settings')} className={`text-left py-1.5 text-sm ${currentView === 'shop-settings' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>ទូទៅ (General)</button>
-                                <button onClick={() => setCurrentView('staff-management')} className={`text-left py-1.5 text-sm ${currentView === 'staff-management' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បុគ្គលិក (Staff)</button>
-                                <button onClick={() => setCurrentView('hardware-setup')} className={`text-left py-1.5 text-sm ${currentView === 'hardware-setup' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>Hardware</button>
+                                <button onClick={() => handleNavigation('shop-settings')} className={`text-left py-1.5 text-sm ${currentView === 'shop-settings' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>ទូទៅ (General)</button>
+                                <button onClick={() => handleNavigation('staff-management')} className={`text-left py-1.5 text-sm ${currentView === 'staff-management' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>បុគ្គលិក (Staff)</button>
+                                <button onClick={() => handleNavigation('hardware-setup')} className={`text-left py-1.5 text-sm ${currentView === 'hardware-setup' ? 'text-primary font-medium' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'}`}>Hardware</button>
                             </div>
                         )}
                         </>
@@ -210,7 +219,7 @@ const Sidebar: React.FC = () => {
                         </button>
 
                         <button 
-                            onClick={() => setCurrentView('pricing')}
+                            onClick={() => handleNavigation('pricing')}
                             className={`flex w-full items-center gap-3 px-3 py-2.5 rounded-lg group transition-colors ${currentView === 'pricing' ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'}`}
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:text-primary transition-colors">diamond</span>
@@ -221,19 +230,19 @@ const Sidebar: React.FC = () => {
 
                 {/* User Profile Section */}
                 {user && (
-                    <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="p-4 border-t border-slate-200 dark:border-slate-700 shrink-0 bg-surface-light dark:bg-surface-dark">
                         <div 
-                            onClick={() => setIsProfileOpen(true)}
+                            onClick={() => { setIsProfileOpen(true); setIsSidebarOpen(false); }}
                             className="flex items-center gap-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
                             <img 
-                                src={user.avatar} 
-                                alt="Admin Profile" 
-                                className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
+                                src={user.avatar || 'https://via.placeholder.com/150'} 
+                                alt="Profile" 
+                                className="w-10 h-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm"
                             />
-                            <div className="flex flex-col">
-                                <span className="text-sm font-semibold text-slate-900 dark:text-white">{user.name}</span>
-                                <span className="text-xs text-slate-500 font-khmer">{user.role}</span>
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.name}</span>
+                                <span className="text-xs text-slate-500 font-khmer truncate">{user.role}</span>
                             </div>
                         </div>
                     </div>

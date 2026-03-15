@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../src/config/firebase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { sendNoteReminderAlert } from '../utils/telegramAlert';
 
 // ─────────────────────────────────────────────
 // Types
@@ -119,8 +120,23 @@ const SokNotes: React.FC = () => {
     const [autoSummary, setAutoSummary]       = useState('');
     const [autoSummaryLoading, setAutoSummaryLoading] = useState(false);
 
+    // ── Phase 4: Reminder state ──
+    const [reminderSending, setReminderSending]   = useState(false);
+    const [reminderSentMsg, setReminderSentMsg]   = useState('');
+
+    // ── Phase 5: AI Digest ──
+    const [showDigest, setShowDigest]             = useState(false);
+    const [digestLoading, setDigestLoading]       = useState(false);
+    const [digestResult, setDigestResult]         = useState<{
+        weekly: string;
+        tasks: string;
+        customers: string;
+        products: string;
+    } | null>(null);
+
     const contentRef  = useRef<HTMLTextAreaElement>(null);
     const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const reminderCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ── Firestore listener ──
     useEffect(() => {
@@ -135,6 +151,54 @@ const SokNotes: React.FC = () => {
         });
         return () => unsub();
     }, [tenantId]);
+
+    // ── Phase 4: Check reminders every hour ──
+    useEffect(() => {
+        const checkReminders = async () => {
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const dueNotes = notes.filter(n =>
+                n.reminder &&
+                n.reminder <= today &&
+                n.title !== 'Note ថ្មី'
+            );
+            for (const note of dueNotes) {
+                await sendNoteReminderAlert(
+                    note.title,
+                    note.content,
+                    note.reminder!,
+                    note.linkedCustomerName,
+                    note.linkedProductName,
+                    note.linkedOrderId
+                );
+            }
+        };
+
+        if (notes.length > 0) {
+            checkReminders(); // Check on load
+            reminderCheckRef.current = setInterval(checkReminders, 60 * 60 * 1000); // Every hour
+        }
+        return () => {
+            if (reminderCheckRef.current) clearInterval(reminderCheckRef.current);
+        };
+    }, [notes]);
+
+    // ── Phase 4: Manual send reminder ──
+    const handleSendReminder = async () => {
+        if (!selectedNote || !editReminder) return;
+        setReminderSending(true);
+        setReminderSentMsg('');
+        const ok = await sendNoteReminderAlert(
+            editTitle,
+            editContent,
+            editReminder,
+            editLinkedCustomer.name,
+            editLinkedProduct.name,
+            editLinkedOrder.id
+        );
+        setReminderSentMsg(ok ? '✅ ផ្ញើ Telegram ជោគជ័យ!' : '❌ មិនបានផ្ញើ — check Telegram settings');
+        setReminderSending(false);
+        setTimeout(() => setReminderSentMsg(''), 4000);
+    };
 
     // ── Auto-save ──
     useEffect(() => {
@@ -355,6 +419,66 @@ Command: "${inlineQuery}"
         setShowDateBanner(false);
     };
 
+    // ── Phase 5: Generate AI Digest ──
+    const generateDigest = async () => {
+        if (notes.length === 0) return;
+        setDigestLoading(true);
+        setDigestResult(null);
+        setShowDigest(true);
+
+        const today = new Date();
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const weeklyNotes = notes.filter(n => {
+            const d = n.updatedAt?.toDate ? n.updatedAt.toDate() : new Date(n.updatedAt || 0);
+            return d >= weekAgo;
+        });
+
+        // Build context for AI
+        const allNotesContext = notes.slice(0, 30).map(n =>
+            `[${n.category.toUpperCase()}] "${n.title}": ${n.content.slice(0, 200)}`
+        ).join('\n---\n');
+
+        const weeklyContext = weeklyNotes.map(n =>
+            `[${n.category.toUpperCase()}] "${n.title}": ${n.content.slice(0, 200)}`
+        ).join('\n---\n') || 'No notes this week.';
+
+        const taskNotes = notes.filter(n => n.category === 'task' || n.content.includes('[ ]'));
+        const taskContext = taskNotes.slice(0, 15).map(n =>
+            `"${n.title}": ${n.content.slice(0, 300)}`
+        ).join('\n---\n') || 'No task notes.';
+
+        const customerNotes = notes.filter(n => n.linkedCustomerName || n.category === 'customer');
+        const customerContext = customerNotes.slice(0, 10).map(n =>
+            `"${n.title}" [Customer: ${n.linkedCustomerName || 'N/A'}]: ${n.content.slice(0, 150)}`
+        ).join('\n---\n') || 'No customer notes.';
+
+        const productNotes = notes.filter(n => n.linkedProductName || n.category === 'product');
+        const productContext = productNotes.slice(0, 10).map(n =>
+            `"${n.title}" [Product: ${n.linkedProductName || 'N/A'}]: ${n.content.slice(0, 150)}`
+        ).join('\n---\n') || 'No product notes.';
+
+        try {
+            const [weekly, tasks, customers, products] = await Promise.all([
+                callGemini('អ្នកជា Sok AI Business Analyst ។ ឆ្លើយជាខ្មែរ (ខ្លី ច្បាស់)។\nNotes ថ្ងៃនេះដល់ ១សប្តាហ៍:\n' + weeklyContext + '\nសង្ខេប ៣-៥ sentences: អ្វីបានកើតឡើងសប្តាហ៍នេះ? trends? ចំណាំសំខាន់?'),
+
+                callGemini('អ្នកជា Sok AI Task Manager ។ ឆ្លើយជាខ្មែរ ។\nTask notes:\n' + taskContext + '\nList tasks ដែល pending/incomplete ([ ] items) ។ Format: • [note name]: task ។ បើគ្មាន tasks → "✅ គ្មាន task pending"។'),
+
+                callGemini('អ្នកជា Sok AI CRM Analyst ។ ឆ្លើយជាខ្មែរ ។\nCustomer-related notes:\n' + customerContext + '\nវិភាគ: customers ណាខ្លះត្រូវការ follow-up? patterns? ចំណាំ? ២-៤ bullet points ។'),
+
+                callGemini('អ្នកជា Sok AI Inventory Analyst ។ ឆ្លើយជាខ្មែរ ។\nProduct-related notes:\n' + productContext + '\nវិភាគ: products ណាខ្លះត្រូវ attention? reorder? issues? ២-៤ bullet points ។'),
+            ]);
+
+            setDigestResult({ weekly, tasks, customers, products });
+        } catch (e: any) {
+            setDigestResult({
+                weekly: e.message || 'Error',
+                tasks: '', customers: '', products: ''
+            });
+        } finally {
+            setDigestLoading(false);
+        }
+    };
+
     const formatDate = (ts: any) => {
         if (!ts) return '';
         const d = ts?.toDate ? ts.toDate() : new Date(ts);
@@ -385,6 +509,14 @@ Command: "${inlineQuery}"
                         className="w-full py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity font-khmer">
                         <span className="material-icons-outlined text-sm">add</span>
                         Note ថ្មី
+                    </button>
+                    <button onClick={generateDigest}
+                        disabled={digestLoading || notes.length === 0}
+                        className="w-full mt-1.5 py-2 rounded-lg bg-gradient-to-r from-purple-600/80 to-indigo-600/80 border border-purple-500/40 text-white text-xs font-bold flex items-center justify-center gap-1 hover:opacity-90 transition-opacity disabled:opacity-40 font-khmer">
+                        {digestLoading
+                            ? <><span className="material-icons-outlined animate-spin text-sm">refresh</span> Analyzing...</>
+                            : <><span className="material-icons-outlined text-sm">auto_awesome</span> AI Digest</>
+                        }
                     </button>
                 </div>
 
@@ -493,6 +625,25 @@ Command: "${inlineQuery}"
                             <span className="material-icons-outlined text-slate-500" style={{ fontSize: 14 }}>alarm</span>
                             <input type="date" value={editReminder} onChange={e => setEditReminder(e.target.value)}
                                 className="text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-300 outline-none" />
+                            {editReminder && (
+                                <button
+                                    onClick={handleSendReminder}
+                                    disabled={reminderSending}
+                                    title="ផ្ញើ reminder ទៅ Telegram ឥឡូវ"
+                                    className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all disabled:opacity-40 font-khmer"
+                                >
+                                    {reminderSending
+                                        ? <span className="material-icons-outlined animate-spin" style={{ fontSize: 13 }}>refresh</span>
+                                        : <span className="material-icons-outlined" style={{ fontSize: 13 }}>send</span>
+                                    }
+                                    TG
+                                </button>
+                            )}
+                            {reminderSentMsg && (
+                                <span className="text-[10px] font-khmer px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 whitespace-nowrap">
+                                    {reminderSentMsg}
+                                </span>
+                            )}
                         </div>
 
                         <div className="flex-1" />
@@ -821,6 +972,37 @@ Command: "${inlineQuery}"
                                     </div>
                                 </div>
 
+                                {/* Phase 4: Reminder status card */}
+                                {editReminder && (
+                                    <div className="mx-3 mt-3 bg-yellow-500/5 border border-yellow-500/20 rounded-xl p-3">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-yellow-400 text-sm">🔔</span>
+                                            <span className="text-[11px] font-bold text-yellow-400 font-khmer">Reminder</span>
+                                        </div>
+                                        <div className="text-[11px] text-slate-400 font-mono mb-2">{editReminder}</div>
+                                        <button
+                                            onClick={handleSendReminder}
+                                            disabled={reminderSending}
+                                            className="w-full py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400 text-[11px] font-bold hover:bg-blue-600/30 transition-all disabled:opacity-40 flex items-center justify-center gap-1 font-khmer"
+                                        >
+                                            {reminderSending ? (
+                                                <>
+                                                    <span className="material-icons-outlined animate-spin" style={{ fontSize: 12 }}>refresh</span>
+                                                    កំពុងផ្ញើ...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-icons-outlined" style={{ fontSize: 12 }}>send</span>
+                                                    ផ្ញើ Reminder → Telegram
+                                                </>
+                                            )}
+                                        </button>
+                                        {reminderSentMsg && (
+                                            <div className="mt-1.5 text-[10px] text-center font-khmer text-slate-400">{reminderSentMsg}</div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="flex-1 overflow-y-auto p-3">
                                     {aiLoading ? (
                                         <div className="flex items-center gap-2">
@@ -886,9 +1068,124 @@ Command: "${inlineQuery}"
                     </div>
                 </div>
             )}
+
+            {/* ══ Phase 5: AI Digest Modal ══ */}
+            {showDigest && (
+                <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4 overflow-y-auto">
+                    <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+
+                        {/* Modal Header */}
+                        <div className="flex items-center gap-3 p-5 border-b border-slate-800 flex-shrink-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-lg">🧠</div>
+                            <div>
+                                <div className="text-base font-bold font-khmer">AI Business Digest</div>
+                                <div className="text-[11px] text-slate-500 font-khmer">
+                                    វិភាគ notes ទាំង {notes.length} — {new Date().toLocaleDateString('en-US', { dateStyle: 'medium' })}
+                                </div>
+                            </div>
+                            <div className="ml-auto flex items-center gap-2">
+                                <button onClick={generateDigest} disabled={digestLoading}
+                                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 hover:bg-purple-600/30 transition-all disabled:opacity-40 font-khmer">
+                                    <span className="material-icons-outlined" style={{ fontSize: 13 }}>refresh</span>
+                                    Refresh
+                                </button>
+                                <button onClick={() => setShowDigest(false)}
+                                    className="w-8 h-8 rounded-xl border border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600 transition-all flex items-center justify-center">
+                                    <span className="material-icons-outlined" style={{ fontSize: 16 }}>close</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-5">
+                            {digestLoading ? (
+                                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                                    <div className="flex gap-2">
+                                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" />
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.15s]" />
+                                        <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:0.3s]" />
+                                    </div>
+                                    <div className="text-sm text-slate-500 font-khmer">AI កំពុងវិភាគ notes ទាំងអស់...</div>
+                                    <div className="text-[11px] text-slate-600 font-khmer">ប្រមូល weekly summary + tasks + customers + products</div>
+                                </div>
+                            ) : digestResult ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {/* Weekly Summary */}
+                                    <DigestSection
+                                        title="Weekly Summary"
+                                        icon="📅"
+                                        content={digestResult.weekly}
+                                        color="bg-cyan-500/5 border-cyan-500/20"
+                                    />
+                                    {/* Tasks */}
+                                    {digestResult.tasks && (
+                                        <DigestSection
+                                            title="Tasks Pending"
+                                            icon="🎯"
+                                            content={digestResult.tasks}
+                                            color="bg-green-500/5 border-green-500/20"
+                                        />
+                                    )}
+                                    {/* Customers */}
+                                    {digestResult.customers && (
+                                        <DigestSection
+                                            title="Customer Insights"
+                                            icon="👥"
+                                            content={digestResult.customers}
+                                            color="bg-indigo-500/5 border-indigo-500/20"
+                                        />
+                                    )}
+                                    {/* Products */}
+                                    {digestResult.products && (
+                                        <DigestSection
+                                            title="Product / Inventory Notes"
+                                            icon="📦"
+                                            content={digestResult.products}
+                                            color="bg-yellow-500/5 border-yellow-500/20"
+                                        />
+                                    )}
+                                    {/* Note stats footer */}
+                                    <div className="grid grid-cols-5 gap-2 mt-2">
+                                        {[
+                                            { label: 'Total', count: notes.length, color: 'text-slate-400' },
+                                            { label: 'Tasks', count: notes.filter(n=>n.category==='task').length, color: 'text-green-400' },
+                                            { label: 'Customer', count: notes.filter(n=>n.category==='customer').length, color: 'text-indigo-400' },
+                                            { label: 'Product', count: notes.filter(n=>n.category==='product').length, color: 'text-yellow-400' },
+                                            { label: 'Reminders', count: notes.filter(n=>n.reminder).length, color: 'text-orange-400' },
+                                        ].map(s => (
+                                            <div key={s.label} className="bg-slate-800 rounded-xl p-3 text-center border border-slate-700">
+                                                <div className={`text-xl font-bold font-mono ${s.color}`}>{s.count}</div>
+                                                <div className="text-[10px] text-slate-500 font-khmer">{s.label}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
+                                    <span className="text-4xl">🧠</span>
+                                    <span className="text-sm font-khmer">ចុច Refresh ដើម្បី generate digest</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
+
+// ─────────────────────────────────────────────
+// Phase 5: AI Digest Modal
+// ─────────────────────────────────────────────
+const DigestSection: React.FC<{ title: string; icon: string; content: string; color: string }> = ({ title, icon, content, color }) => (
+    <div className={`rounded-xl border p-4 ${color}`}>
+        <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">{icon}</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">{title}</span>
+        </div>
+        <div className="text-xs text-slate-300 leading-6 whitespace-pre-wrap font-khmer">{content}</div>
+    </div>
+);
 
 // ─────────────────────────────────────────────
 // NoteCard

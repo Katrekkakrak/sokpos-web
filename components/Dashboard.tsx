@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -41,9 +40,8 @@ const Dashboard: React.FC = () => {
         return { dailyTotal, newLeadsCount, pendingOnline, lowStockCount };
     }, [orders, leads, onlineOrders, products]);
 
-    // --- New Calculations for Enhanced Dashboard ---
+    // --- Calculations for Enhanced Dashboard ---
     const branchAnalytics = useMemo(() => {
-        // Use raw orders (filtered by global context)
         const branchOrders = orders;
         
         // Metric A: Today's revenue vs Yesterday's
@@ -83,8 +81,8 @@ const Dashboard: React.FC = () => {
                 if (!productSales[item.id]) {
                     productSales[item.id] = { name: item.name, qty: 0, revenue: 0 };
                 }
-                productSales[item.id].qty += item.quantity;
-                productSales[item.id].revenue += item.quantity * (item.selectedUnitPrice || item.price);
+                productSales[item.id].qty += (Number(item.quantity)||0);
+                productSales[item.id].revenue += (Number(item.quantity)||0) * (Number(item.selectedUnitPrice) || Number(item.price) || 0);
             });
         });
         const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty).slice(0, 5);
@@ -118,7 +116,6 @@ const Dashboard: React.FC = () => {
         const currentData: { label: string; value: number }[] = [];
         
         if (revenueView === 'daily') {
-            // Full 24-hour breakdown
             const labels = [
                 '12 AM', '1 AM', '2 AM', '3 AM', '4 AM', '5 AM', '6 AM', '7 AM', '8 AM', '9 AM', '10 AM', '11 AM',
                 '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM', '10 PM', '11 PM'
@@ -140,7 +137,6 @@ const Dashboard: React.FC = () => {
             });
 
         } else if (revenueView === 'weekly') {
-            // Last 7 days
             for (let i = 6; i >= 0; i--) {
                 const d = new Date(today);
                 d.setDate(d.getDate() - i);
@@ -155,7 +151,6 @@ const Dashboard: React.FC = () => {
             }
 
         } else if (revenueView === 'monthly') {
-            // This month chunks: 1-5, 6-10, 11-15, 16-20, 21-25, 26+
             const labels = ['1-5', '6-10', '11-15', '16-20', '21-25', '26+'];
             const buckets = [0, 0, 0, 0, 0, 0];
             
@@ -205,8 +200,8 @@ const Dashboard: React.FC = () => {
                 
                 {/* Digital Store Link Card */}
                 <div className="bg-white dark:bg-slate-800 rounded-2xl p-1 shadow-sm border border-slate-200 dark:border-slate-700">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 md:p-6">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
                             <div className="flex-1 w-full">
                                 <h2 className="text-xl font-bold text-slate-900 dark:text-white font-khmer mb-2 flex items-center gap-2">
                                     <span className="text-2xl">🌐</span> លីងហាងឌីជីថលរបស់អ្នក (Your Digital Store Link)
@@ -217,11 +212,12 @@ const Dashboard: React.FC = () => {
                                 
                                 <div className="flex flex-col sm:flex-row gap-3">
                                     <div className="flex-1 relative">
+                                        {/* 🛠️ FIX 1: ប្តូរ text-sm ទៅ text-base sm:text-sm ការពារ iPhone Zoom ពេលចុច */}
                                         <input 
                                             type="text" 
                                             readOnly 
                                             value={storeLink} 
-                                            className="w-full bg-slate-100 dark:bg-slate-900 text-blue-600 dark:text-blue-400 font-medium text-sm rounded-lg border-none py-3 pl-4 pr-10 focus:ring-2 focus:ring-blue-500/20"
+                                            className="w-full bg-slate-100 dark:bg-slate-900 text-blue-600 dark:text-blue-400 font-medium text-base sm:text-sm rounded-lg border-none py-3 pl-4 pr-10 focus:ring-2 focus:ring-blue-500/20"
                                         />
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                                             <span className="material-icons-outlined text-lg">link</span>
@@ -230,7 +226,7 @@ const Dashboard: React.FC = () => {
                                     <div className="flex gap-2 shrink-0">
                                         <button 
                                             onClick={handleCopyLink}
-                                            className={`px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 shadow-sm ${copied ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                                            className={`flex-1 sm:flex-none px-5 py-3 sm:py-2.5 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-sm ${copied ? 'bg-green-600 text-white' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                                         >
                                             <span className="material-icons-outlined text-lg">
                                                 {copied ? 'check' : 'content_copy'}
@@ -241,7 +237,7 @@ const Dashboard: React.FC = () => {
                                             href={storeLink}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors flex items-center gap-2 shadow-sm shadow-blue-500/30"
+                                            className="flex-1 sm:flex-none px-5 py-3 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm shadow-blue-500/30"
                                         >
                                             <span className="material-icons-outlined text-lg">open_in_new</span>
                                             Visit Store
@@ -259,10 +255,10 @@ const Dashboard: React.FC = () => {
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white font-khmer">សួស្តី, បង {user?.name.split(' ')[0]} 👋</h2>
                         <p className="text-sm text-slate-500 font-khmer mt-1">នេះគឺជាទិន្នន័យសង្ខេបសម្រាប់អាជីវកម្មរបស់អ្នកថ្ងៃនេះ។</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <button 
                             onClick={() => setCurrentView('pos')}
-                            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-md shadow-primary/30 active:scale-95 group"
+                            className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-3 sm:py-2.5 rounded-lg text-sm font-medium transition-all shadow-md shadow-primary/30 active:scale-95 group w-full sm:w-auto"
                         >
                             <span className="material-icons-outlined text-[20px] group-hover:rotate-90 transition-transform">add</span>
                             <span className="font-khmer font-bold">វិក្កយបត្រថ្មី</span>
@@ -270,31 +266,29 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* NEW: Financial Summary KPI Row */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* New KPI 1: Total Revenue with Trend */}
+                {/* Financial Summary KPI Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-emerald-500">trending_up</span>
                         </div>
                         <div className="relative z-10">
                             <p className="text-sm font-medium text-slate-500 font-khmer mb-1">សរុបលក់ថ្មីៗ (Total Revenue)</p>
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.todayRevenue.toFixed(2)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${(Number(branchAnalytics.todayRevenue)||0).toFixed(2)}</h3>
                             <div className={`flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full w-fit ${branchAnalytics.revenueChange >= 0 ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20' : 'text-red-600 bg-red-50 dark:bg-red-900/20'}`}>
                                 <span className="material-icons-outlined text-[14px]">{branchAnalytics.revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
-                                <span>{branchAnalytics.revenueChange.toFixed(1)}% vs yesterday</span>
+                                <span>{(Number(branchAnalytics.revenueChange)||0).toFixed(1)}% vs yesterday</span>
                             </div>
                         </div>
                     </div>
                     
-                    {/* New KPI 2: Total Cash */}
                     <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-blue-500">payments</span>
                         </div>
                         <div className="relative z-10">
                             <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ប្រាក់សុទ្ធ (Cash)</p>
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.cashTotal.toFixed(2)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${(Number(branchAnalytics.cashTotal)||0).toFixed(2)}</h3>
                             <div className="flex items-center gap-1 mt-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full w-fit">
                                 <span className="material-icons-outlined text-[14px]">account_balance_wallet</span>
                                 <span>{branchAnalytics.walkInOrders} sales</span>
@@ -302,14 +296,13 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* New KPI 3: Total KHQR */}
                     <div className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-purple-500">qr_code_2</span>
                         </div>
                         <div className="relative z-10">
                             <p className="text-sm font-medium text-slate-500 font-khmer mb-1">KHQR ស្កេន (KHQR)</p>
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${branchAnalytics.khqrTotal.toFixed(2)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${(Number(branchAnalytics.khqrTotal)||0).toFixed(2)}</h3>
                             <div className="flex items-center gap-1 mt-2 text-xs font-medium text-purple-600 bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 rounded-full w-fit">
                                 <span className="material-icons-outlined text-[14px]">qr_code</span>
                                 <span>Mobile payments</span>
@@ -317,32 +310,30 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* New KPI 4: Total Unpaid Debt */}
                     <div className={`bg-surface-light dark:bg-surface-dark p-5 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group ${branchAnalytics.totalDebt > 0 ? 'border-orange-200 dark:border-orange-900/50' : 'border-slate-200 dark:border-slate-700'}`}>
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className={`material-icons-outlined text-6xl ${branchAnalytics.totalDebt > 0 ? 'text-orange-500' : 'text-slate-400'}`}>receipt_long</span>
                         </div>
                         <div className="relative z-10">
                             <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ជំពាក់សរុប (Total Debt)</p>
-                            <h3 className={`text-2xl font-bold ${branchAnalytics.totalDebt > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-900 dark:text-white'}`}>${branchAnalytics.totalDebt.toFixed(2)}</h3>
+                            <h3 className={`text-2xl font-bold ${branchAnalytics.totalDebt > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-900 dark:text-white'}`}>${(Number(branchAnalytics.totalDebt)||0).toFixed(2)}</h3>
                             <div className={`flex items-center gap-1 mt-2 text-xs font-medium px-2 py-0.5 rounded-full w-fit ${branchAnalytics.debtCount > 0 ? 'text-orange-600 bg-orange-50 dark:bg-orange-900/20' : 'text-slate-500 bg-slate-100 dark:bg-slate-800'}`}>
                                 <span className="material-icons-outlined text-[14px]">group</span>
-                                <span font-khmer>{branchAnalytics.debtCount} customers</span>
+                                <span className="font-khmer">{branchAnalytics.debtCount} customers</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Existing KPI Cards (4 Columns) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* KPI 1: Daily Sales */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div onClick={() => setCurrentView('receipt-history')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-primary">payments</span>
                         </div>
                         <div className="relative z-10">
                             <p className="text-sm font-medium text-slate-500 font-khmer mb-1">ការលក់ថ្ងៃនេះ (Daily Sales)</p>
-                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${stats.dailyTotal.toFixed(2)}</h3>
+                            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${(Number(stats.dailyTotal)||0).toFixed(2)}</h3>
                             <div className="flex items-center gap-1 mt-2 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full w-fit">
                                 <span className="material-icons-outlined text-[14px]">trending_up</span>
                                 <span>Today</span>
@@ -350,7 +341,6 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* KPI 2: New Leads */}
                     <div onClick={() => setCurrentView('crm-directory')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-purple-500">group_add</span>
@@ -364,7 +354,6 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* KPI 3: Online Orders */}
                     <div onClick={() => setCurrentView('online-orders')} className="bg-surface-light dark:bg-surface-dark p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group">
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className="material-icons-outlined text-6xl text-blue-500">shopping_cart</span>
@@ -384,7 +373,6 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* KPI 4: Out of Stock Alerts */}
                     <div onClick={() => setCurrentView('inventory-list')} className={`bg-surface-light dark:bg-surface-dark p-5 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden group ${stats.lowStockCount > 0 ? 'border-red-200 dark:border-red-900/50' : 'border-slate-200 dark:border-slate-700'}`}>
                         <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <span className={`material-icons-outlined text-6xl ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-slate-400'}`}>warning</span>
@@ -403,30 +391,30 @@ const Dashboard: React.FC = () => {
                 {/* Main Section Grid: Chart + Feed */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Revenue Bar Chart (Left) */}
-                    <div className="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col">
-                        <div className="mb-6 flex items-start justify-between">
+                    <div className="lg:col-span-1 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col overflow-x-auto">
+                        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-900 dark:text-white font-khmer">ចំណូល (Revenue)</h3>
                                 <p className="text-xs text-slate-500 mt-1">
                                     {revenueView === 'daily' ? 'Hourly breakdown' : revenueView === 'weekly' ? 'Last 7 days' : 'This month'}
                                 </p>
                             </div>
-                            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 w-full sm:w-auto">
                                 <button 
                                     onClick={() => setRevenueView('daily')}
-                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'daily' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    className={`flex-1 sm:flex-none px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'daily' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                                 >
                                     Today
                                 </button>
                                 <button 
                                     onClick={() => setRevenueView('weekly')}
-                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'weekly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    className={`flex-1 sm:flex-none px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'weekly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                                 >
                                     Week
                                 </button>
                                 <button 
                                     onClick={() => setRevenueView('monthly')}
-                                    className={`px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'monthly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                                    className={`flex-1 sm:flex-none px-2 py-1 text-[10px] font-bold rounded-md transition-all ${revenueView === 'monthly' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
                                 >
                                     Month
                                 </button>
@@ -435,13 +423,13 @@ const Dashboard: React.FC = () => {
                         
                         {/* Dynamic Bar Chart */}
                         <div className="flex-1 min-h-[250px] w-full relative overflow-x-auto custom-scroll pb-2 border-b border-l border-slate-100 dark:border-slate-700">
-                            <div className={`flex items-end justify-between h-full pt-8 pb-6 px-1 ${revenueView === 'daily' ? 'min-w-[800px] gap-1' : 'w-full gap-2'}`}>
+                            <div className={`flex items-end justify-between h-full pt-8 pb-6 px-1 ${revenueView === 'daily' ? 'min-w-[800px] gap-1' : 'min-w-[400px] w-full gap-2'}`}>
                                 {chartData.data.map((item, idx) => {
                                     const height = (item.value / chartData.maxVal) * 100;
                                     return (
                                         <div key={idx} className="relative flex flex-col items-center flex-1 group h-full justify-end z-10 cursor-pointer">
                                             <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-slate-800 text-white text-[10px] py-1 px-2 rounded mb-1 transition-opacity whitespace-nowrap z-20">
-                                                ${item.value.toFixed(2)}
+                                                ${(Number(item.value)||0).toFixed(2)}
                                             </div>
                                             <div 
                                                 className="w-full max-w-[20px] bg-primary/20 group-hover:bg-primary/40 rounded-t-sm transition-all" 
@@ -464,9 +452,9 @@ const Dashboard: React.FC = () => {
                             <p className="text-xs text-slate-500 mt-1">Breakdown by channel</p>
                         </div>
                         
-                        {/* Pie/Donut Chart Mock */}
+                        {/* Pie/Donut Chart */}
                         <div className="flex flex-col items-center justify-center flex-1">
-                            <div className="w-32 h-32 rounded-full bg-gradient-to-r from-emerald-400 to-blue-500 relative flex items-center justify-center">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-r from-emerald-400 to-blue-500 relative flex items-center justify-center shrink-0">
                                 <div className="w-28 h-28 rounded-full bg-surface-light dark:bg-surface-dark flex items-center justify-center">
                                     <div className="text-center">
                                         <p className="text-xs text-slate-500">Total</p>
@@ -478,21 +466,21 @@ const Dashboard: React.FC = () => {
                             <div className="mt-6 space-y-2 w-full">
                                 <div className="flex items-center justify-between text-xs">
                                     <div className="flex items-center gap-2">
-                                        <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
+                                        <span className="w-3 h-3 rounded-full bg-emerald-400 shrink-0"></span>
                                         <span className="text-slate-600 dark:text-slate-300 font-khmer">ដើរទិញ</span>
                                     </div>
                                     <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.walkInOrders}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                     <div className="flex items-center gap-2">
-                                        <span className="w-3 h-3 rounded-full bg-blue-400"></span>
+                                        <span className="w-3 h-3 rounded-full bg-blue-400 shrink-0"></span>
                                         <span className="text-slate-600 dark:text-slate-300">Facebook</span>
                                     </div>
                                     <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.facebookOrders}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-xs">
                                     <div className="flex items-center gap-2">
-                                        <span className="w-3 h-3 rounded-full bg-purple-400"></span>
+                                        <span className="w-3 h-3 rounded-full bg-purple-400 shrink-0"></span>
                                         <span className="text-slate-600 dark:text-slate-300">Telegram</span>
                                     </div>
                                     <span className="font-bold text-slate-900 dark:text-white">{branchAnalytics.telegramOrders}</span>
@@ -501,7 +489,7 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Right Sidebar Panel: Recent Activity (KEEP EXISTING) */}
+                    {/* Right Sidebar Panel: Recent Activity */}
                     <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden h-full max-h-[460px]">
                         <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
                             <h3 className="text-base font-bold text-slate-900 dark:text-white font-khmer">សកម្មភាពថ្មីៗ (Recent Activity)</h3>
@@ -522,7 +510,7 @@ const Dashboard: React.FC = () => {
                                             <p className="text-sm font-medium text-slate-800 dark:text-slate-200 font-khmer truncate">
                                                 <span className="font-bold">New Sale</span> completed
                                             </p>
-                                            <p className="text-xs text-slate-500 mt-0.5 font-mono">${order.total.toFixed(2)} • {order.id}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5 font-mono">${(Number(order.total)||0).toFixed(2)} • {order.id}</p>
                                         </div>
                                         <span className="text-[10px] text-slate-400 whitespace-nowrap">{new Date(order.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                     </div>
@@ -547,12 +535,12 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* NEW: Alert Boxes Row (3 Columns) */}
+                {/* Alert Boxes Row (3 Columns) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Alert Box 1: Urgent Packing */}
                     <div className={`p-5 rounded-xl border-2 ${branchAnalytics.urgentCount > 0 ? 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
                         <div className="flex items-start gap-3">
-                            <div className={`p-3 rounded-lg ${branchAnalytics.urgentCount > 0 ? 'bg-orange-200 dark:bg-orange-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                            <div className={`p-3 rounded-lg shrink-0 ${branchAnalytics.urgentCount > 0 ? 'bg-orange-200 dark:bg-orange-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                 <span className="material-icons-outlined text-xl text-orange-600 dark:text-orange-400">local_shipping</span>
                             </div>
                             <div className="flex-1">
@@ -566,7 +554,7 @@ const Dashboard: React.FC = () => {
                     {/* Alert Box 2: Low Stock Warning */}
                     <div className={`p-5 rounded-xl border-2 ${stats.lowStockCount > 0 ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
                         <div className="flex items-start gap-3">
-                            <div className={`p-3 rounded-lg ${stats.lowStockCount > 0 ? 'bg-red-200 dark:bg-red-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                            <div className={`p-3 rounded-lg shrink-0 ${stats.lowStockCount > 0 ? 'bg-red-200 dark:bg-red-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                 <span className="material-icons-outlined text-xl text-red-600 dark:text-red-400">inventory_2</span>
                             </div>
                             <div className="flex-1">
@@ -580,12 +568,12 @@ const Dashboard: React.FC = () => {
                     {/* Alert Box 3: Debt Collection */}
                     <div className={`p-5 rounded-xl border-2 ${branchAnalytics.debtCount > 0 ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
                         <div className="flex items-start gap-3">
-                            <div className={`p-3 rounded-lg ${branchAnalytics.debtCount > 0 ? 'bg-purple-200 dark:bg-purple-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                            <div className={`p-3 rounded-lg shrink-0 ${branchAnalytics.debtCount > 0 ? 'bg-purple-200 dark:bg-purple-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
                                 <span className="material-icons-outlined text-xl text-purple-600 dark:text-purple-400">person_alert</span>
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-slate-900 dark:text-white font-khmer">ឥណទាន</h4>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${branchAnalytics.totalDebt.toFixed(0)}</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">${(Number(branchAnalytics.totalDebt)||0).toFixed(0)}</p>
                                 <div className="mt-2">
                                     {branchAnalytics.topDebtors.slice(0, 2).map((debtor, idx) => (
                                         <p key={idx} className="text-xs text-slate-600 dark:text-slate-400 truncate">{debtor.name}</p>
@@ -602,8 +590,9 @@ const Dashboard: React.FC = () => {
                         <h3 className="font-bold text-slate-900 dark:text-white font-khmer">វិក្កយបត្រចុងក្រោយ (Latest Invoices)</h3>
                         <button onClick={() => setCurrentView('receipt-history')} className="text-sm text-primary font-medium hover:underline font-khmer">មើលទាំងអស់</button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
+                    {/* 🛠️ FIX: បន្ថែមរុំ overflow និងកំណត់ min-w ឲ្យតារាងទូរស័ព្ទ អូសបានមិនបែកអក្សរ */}
+                    <div className="overflow-x-auto w-full pb-2">
+                        <table className="w-full min-w-[800px] text-sm text-left">
                             <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
                                 <tr>
                                     <th scope="col" className="px-6 py-3 font-medium">ID</th>
@@ -633,7 +622,7 @@ const Dashboard: React.FC = () => {
                                                     {order.status}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right font-medium text-slate-900 dark:text-white">${order.total.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-right font-medium text-slate-900 dark:text-white">${(Number(order.total)||0).toFixed(2)}</td>
                                         </tr>
                                     ))
                                 )}
@@ -642,14 +631,15 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* NEW: Top Selling Products Table */}
+                {/* Top Selling Products Table */}
                 <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <h3 className="font-bold text-slate-900 dark:text-white font-khmer">ផលិតផលលក់ច្រើន (Top Selling Products)</h3>
                         <button onClick={() => setCurrentView('inventory-list')} className="text-sm text-primary font-medium hover:underline font-khmer">មើលទាំងអស់</button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
+                    {/* 🛠️ FIX: បន្ថែមរុំ overflow និងកំណត់ min-w */}
+                    <div className="overflow-x-auto w-full pb-2">
+                        <table className="w-full min-w-[600px] text-sm text-left">
                             <thead className="text-xs text-slate-500 uppercase bg-slate-50 dark:bg-slate-800/50">
                                 <tr>
                                     <th scope="col" className="px-6 py-3 font-medium">#</th>
@@ -667,7 +657,7 @@ const Dashboard: React.FC = () => {
                                             <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{idx + 1}</td>
                                             <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{product.name}</td>
                                             <td className="px-6 py-4 text-right text-slate-600 dark:text-slate-300"><span className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full text-xs font-bold">{product.qty}</span></td>
-                                            <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">${product.revenue.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-right font-bold text-slate-900 dark:text-white">${(Number(product.revenue)||0).toFixed(2)}</td>
                                         </tr>
                                     ))
                                 )}
