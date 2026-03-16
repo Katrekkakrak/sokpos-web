@@ -105,7 +105,7 @@ const ReceiptHistory: React.FC = () => {
                                     {shopSettings?.logo ? (
                                         <img src={shopSettings.logo} alt="Shop Logo" className="w-16 h-16 object-contain mb-3 grayscale mx-auto" />
                                     ) : (
-                                        <div className="w-12 h-12 mb-3 bg-slate-900 rounded-full flex items-center justify-center text-white"><span className="material-icons-outlined">storefront</span></div>
+                                        <img src="/logo.png" alt="SokBiz Logo" className="w-16 h-16 object-contain mb-3 grayscale mx-auto drop-shadow-sm" />
                                     )}
                                     <h2 className="text-xl font-bold uppercase tracking-tight mb-1">{shopSettings?.name || 'SokBiz Mart'}</h2>
                                     <p className="text-xs text-slate-500">{shopSettings?.address || 'Phnom Penh, Cambodia'}</p>

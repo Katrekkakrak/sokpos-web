@@ -66,6 +66,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                         >
                             <span className="material-icons-outlined text-2xl">menu</span>
                         </button>
+                        <img src="/logo.png" alt="SokBiz Logo" className="w-8 h-8 object-contain drop-shadow-sm" />
                         <h1 className="font-bold text-base md:text-lg text-primary truncate max-w-[120px] sm:max-w-none">SokBiz KH</h1>
                     </div>
                     

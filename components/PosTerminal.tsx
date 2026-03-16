@@ -236,7 +236,7 @@ const PosTerminal: React.FC = () => {
                     </button>
 
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-lg shadow-sm">Q</div>
+                        <img src="/logo.png" alt="SokBiz Logo" className="w-8 h-8 md:w-10 md:h-10 object-contain drop-shadow-sm" />
                         <h1 className="font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">SokBiz</h1>
                     </div>
                 </div>

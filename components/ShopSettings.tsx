@@ -192,7 +192,7 @@ const ShopSettings: React.FC = () => {
                                             {formData.logo ? (
                                                 <img src={formData.logo} alt="Shop Logo" className="h-full w-full object-contain" />
                                             ) : (
-                                                <span className="material-symbols-outlined text-4xl text-gray-400">store</span>
+                                                <img src="/logo.png" alt="Default Logo" className="h-full w-full object-contain p-2 opacity-40 grayscale" />
                                             )}
                                             {/* Overlay on hover */}
                                             <div className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center cursor-pointer transition-all">

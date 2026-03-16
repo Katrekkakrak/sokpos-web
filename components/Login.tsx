@@ -73,10 +73,12 @@ const Login: React.FC = () => {
             </div>
 
             <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-                <div className="flex flex-col items-center justify-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-primary to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 mb-4 text-white">
-                        <span className="material-icons-round text-3xl">storefront</span>
-                    </div>
+                <div className="flex flex-col items-center justify-center mb-8"> 
+                        <img 
+                            src="/logo.png" 
+                            alt="SokBiz KH logo featuring a stylized storefront icon with Khmer and English text SokBiz KH, set against a clean white background evoking a welcoming and professional business environment" 
+                            className="w-24 h-24 md:w-28 md:h-28 object-contain mx-auto mb-0 drop-shadow-md" 
+                        />         
                     <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">SokBiz KH</h2>
                 </div>
 
